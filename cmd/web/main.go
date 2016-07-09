@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	qe "github.com/heroku-examples/go_queue_example"
+	"github.com/homemade/jgforce"
 
 	log "github.com/Sirupsen/logrus"
 	que "github.com/bgentry/que-go"
@@ -23,14 +23,14 @@ var (
 )
 
 // queueIndexRequest into the que as an encoded JSON object
-func queueIndexRequest(ir qe.IndexRequest) error {
+func queueIndexRequest(ir jgforce.IndexRequest) error {
 	enc, err := json.Marshal(ir)
 	if err != nil {
 		return err
 	}
 
 	j := que.Job{
-		Type: qe.IndexRequestJob,
+		Type: jgforce.IndexRequestJob,
 		Args: enc,
 	}
 
@@ -38,8 +38,8 @@ func queueIndexRequest(ir qe.IndexRequest) error {
 }
 
 // getIndexRequest from the body and further validate it.
-func getIndexRequest(r io.Reader) (qe.IndexRequest, error) {
-	var ir qe.IndexRequest
+func getIndexRequest(r io.Reader) (jgforce.IndexRequest, error) {
+	var ir jgforce.IndexRequest
 	rd := json.NewDecoder(r)
 	if err := rd.Decode(&ir); err != nil {
 		return ir, fmt.Errorf("Error decoding JSON body.")
@@ -91,7 +91,7 @@ func main() {
 	}
 
 	dbURL := os.Getenv("DATABASE_URL")
-	pgxpool, qc, err = qe.Setup(dbURL)
+	pgxpool, qc, err = jgforce.Setup(dbURL)
 	if err != nil {
 		log.WithField("DATABASE_URL", dbURL).Fatal("Unable to setup queue / database")
 	}
