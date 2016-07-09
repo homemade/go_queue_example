@@ -5,8 +5,8 @@
     "postgresql",
     "go"
   ],
-  "website": "http://github.com/heroku-examples/go_queue_example",
-  "repository": "http://github.com/heroku-examples/go_queue_example",
+  "website": "http://github.com/homemade/jgforce",
+  "repository": "http://github.com/homemade/jgforce",
   "addons": [
     "heroku-postgresql"
   ]

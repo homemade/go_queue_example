@@ -1,4 +1,4 @@
-package go_queue_example
+package jgforce
 
 import (
 	que "github.com/bgentry/que-go"

@@ -2,11 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 
-	qe "github.com/heroku-examples/go_queue_example"
+	"github.com/homemade/jgforce"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/bgentry/que-go"
@@ -20,7 +22,7 @@ var (
 
 // indexURLJob would do whatever indexing is necessary in the background
 func indexURLJob(j *que.Job) error {
-	var ir qe.IndexRequest
+	var ir jgforce.IndexRequest
 	err := json.Unmarshal(j.Args, &ir)
 	if err != nil {
 		log.WithField("args", string(j.Args)).Error("Unable to unmarshal job arguments into IndexRequest")
@@ -34,16 +36,22 @@ func indexURLJob(j *que.Job) error {
 }
 
 func main() {
+
+	goVer := os.Getenv("GOVERSION")
+	if goVer != runtime.Version() {
+		log.Fatal("Incompatible Go version detected or GOVERSION not set", fmt.Errorf("Go version is %s but GOVERSION is %s", runtime.Version(), goVer))
+	}
+
 	var err error
 	dbURL := os.Getenv("DATABASE_URL")
-	pgxpool, qc, err = qe.Setup(dbURL)
+	pgxpool, qc, err = jgforce.Setup(dbURL)
 	if err != nil {
 		log.WithField("DATABASE_URL", dbURL).Fatal("Errors setting up the queue / database: ", err)
 	}
 	defer pgxpool.Close()
 
 	wm := que.WorkMap{
-		qe.IndexRequestJob: indexURLJob,
+		jgforce.IndexRequestJob: indexURLJob,
 	}
 
 	// 2 worker go routines
