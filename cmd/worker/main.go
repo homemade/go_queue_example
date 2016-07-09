@@ -2,10 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"os/signal"
-	"runtime"
 	"syscall"
 
 	"github.com/homemade/jgforce"
@@ -36,11 +34,6 @@ func indexURLJob(j *que.Job) error {
 }
 
 func main() {
-
-	goVer := os.Getenv("GOVERSION")
-	if goVer != runtime.Version() {
-		log.Fatal("Incompatible Go version detected or GOVERSION not set", fmt.Errorf("Go version is %s but GOVERSION is %s", runtime.Version(), goVer))
-	}
 
 	var err error
 	dbURL := os.Getenv("DATABASE_URL")
