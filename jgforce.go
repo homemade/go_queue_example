@@ -8,11 +8,16 @@ import (
 // IndexRequest container.
 // The URL is the url to index content from.
 type IndexRequest struct {
-	URL string `json:url`
+	URL string `json:"url"`
 }
 
 const (
-	IndexRequestJob = "IndexRequests" // IndexRequestJob queue name
+
+	// IndexRequestJob queue name
+	IndexRequestJob = "IndexRequests"
+
+	// HeartbeatJob queue name
+	HeartbeatJob = "Heartbeat"
 
 	QueTableSQL = `
 		CREATE TABLE IF NOT EXISTS que_jobs

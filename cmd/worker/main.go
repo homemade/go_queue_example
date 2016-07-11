@@ -33,6 +33,13 @@ func indexURLJob(j *que.Job) error {
 	return nil
 }
 
+// heartbeatJob would do whatever periodic work is necessary in the background
+func heartbeatJob(j *que.Job) error {
+	log.Info("Processing IndexRequest! (not really)")
+	// You would do real work here...
+	return nil
+}
+
 func main() {
 
 	var err error
@@ -45,6 +52,7 @@ func main() {
 
 	wm := que.WorkMap{
 		jgforce.IndexRequestJob: indexURLJob,
+		jgforce.HeartbeatJob: heartbeatJob,
 	}
 
 	// 2 worker go routines
