@@ -1,6 +1,7 @@
 {
 	"ImportPath": "github.com/homemade/jgforce",
-	"GoVersion": "go1.6.2",
+	"GoVersion": "go1.6",
+	"GodepVersion": "v74",
 	"Packages": [
 		"./..."
 	],
@@ -23,6 +24,16 @@
 			"ImportPath": "github.com/jackc/pgx",
 			"Comment": "v2.5.0-7-gdb53003",
 			"Rev": "db5300358a14c176a55627536da74d077aff92ae"
+		},
+		{
+			"ImportPath": "github.com/lib/pq",
+			"Comment": "go1.0-cutoff-107-g4dd446e",
+			"Rev": "4dd446efc17690bc53e154025146f73203b18309"
+		},
+		{
+			"ImportPath": "github.com/lib/pq/oid",
+			"Comment": "go1.0-cutoff-107-g4dd446e",
+			"Rev": "4dd446efc17690bc53e154025146f73203b18309"
 		}
 	]
 }

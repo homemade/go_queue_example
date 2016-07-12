@@ -23,12 +23,12 @@ func querySalesForce() {
 	dbURL := os.Getenv("DATABASE_URL")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
-		log.WithField("DATABASE_URL", dbURL).Fatal("Errors connecting to salesforce database: ", err)
+		log.WithField("DATABASE_URL", dbURL).Error("Errors connecting to salesforce database: ", err)
 		return
 	}
 	rows, err := db.Query("SELECT charityid__c,eventid__c,pageshortname__c,pageid__c,pageemail__c FROM salesforce.jgpage__c")
 	if err != nil {
-		log.WithField("DATABASE_URL", dbURL).Fatal("Errors reading fundraising pages from salesforce database: ", err)
+		log.WithField("DATABASE_URL", dbURL).Error("Errors reading fundraising pages from salesforce database: ", err)
 		return
 	}
 	defer rows.Close()
@@ -39,7 +39,7 @@ func querySalesForce() {
 		var pageID string
 		var pageEmail string
 		if err := rows.Scan(&charityID, &eventID, &pageShortName, &pageID, &pageEmail); err != nil {
-			log.WithField("DATABASE_URL", dbURL).Fatal("Errors scanning fundraising pages from salesforce database: ", err)
+			log.WithField("DATABASE_URL", dbURL).Error("Errors scanning fundraising pages from salesforce database: ", err)
 			return
 		}
 

@@ -2,7 +2,7 @@
 
 # Basic System Requirements (make, gcc, curl, git, zip, unzip, python, ruby, postgres client)
 sudo apt-get update
-sudo apt-get install -y build-essential curl git zip unzip python2.7 ruby-full postgresql
+sudo apt-get install -y build-essential curl git zip unzip python2.7 ruby-full postgresql-client
 
 # Go 1.6.2
 curl -sO https://storage.googleapis.com/golang/go1.6.2.linux-amd64.tar.gz
@@ -24,6 +24,7 @@ if [ "$USER" == "root" ]; then
 	sudo chown vagrant:vagrant /mnt/GoWork/src
 	sudo chown vagrant:vagrant /mnt/GoWork/pkg
 	sudo chown vagrant:vagrant /mnt/GoWork/bin
+  sudo chown vagrant:vagrant /mnt/GoWork/src/**
   su vagrant -c "cat /dev/zero | ssh-keygen -q -N ''"
   su vagrant -c "ssh-keyscan bitbucket.org >> ~/.ssh/known_hosts 2>/dev/null"
   su vagrant -c "ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null"
@@ -35,6 +36,7 @@ else
   sudo chown $USER:$USER /mnt/GoWork/src
   sudo chown $USER:$USER /mnt/GoWork/pkg
   sudo chown $USER:$USER /mnt/GoWork/bin
+  sudo chown $USER:$USER /mnt/GoWork/src/**
   cat /dev/zero | ssh-keygen -q -N ''
   ssh-keyscan bitbucket.org >> ~/.ssh/known_hosts 2>/dev/null
   ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
