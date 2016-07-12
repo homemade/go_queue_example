@@ -5,6 +5,7 @@ import (
 	"os"
 
 	log "github.com/Sirupsen/logrus"
+	_ "github.com/lib/pq"
 )
 
 func heartbeat() error {
