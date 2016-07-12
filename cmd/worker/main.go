@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"os"
 	"os/signal"
 	"syscall"
@@ -18,26 +17,8 @@ var (
 	pgxpool *pgx.ConnPool
 )
 
-// indexURLJob would do whatever indexing is necessary in the background
-func indexURLJob(j *que.Job) error {
-	var ir jgforce.IndexRequest
-	err := json.Unmarshal(j.Args, &ir)
-	if err != nil {
-		log.WithField("args", string(j.Args)).Error("Unable to unmarshal job arguments into IndexRequest")
-		return err
-	}
-
-	log.WithField("IndexRequest", ir).Info("Processing IndexRequest! (not really)")
-	// You would do real work here...
-
-	return nil
-}
-
-// heartbeatJob would do whatever periodic work is necessary in the background
 func heartbeatJob(j *que.Job) error {
-	log.Info("Processing IndexRequest! (not really)")
-	// You would do real work here...
-	return nil
+	return heartbeat()
 }
 
 func main() {
@@ -51,12 +32,11 @@ func main() {
 	defer pgxpool.Close()
 
 	wm := que.WorkMap{
-		jgforce.IndexRequestJob: indexURLJob,
 		jgforce.HeartbeatJob: heartbeatJob,
 	}
 
-	// 2 worker go routines
-	workers := que.NewWorkerPool(qc, wm, 2)
+	// 1 worker go routine
+	workers := que.NewWorkerPool(qc, wm, 1)
 
 	// Catch signal so we can shutdown gracefully
 	sigCh := make(chan os.Signal)

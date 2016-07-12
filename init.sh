@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-# Basic System Requirements (make, gcc, curl, git, zip, unzip, python, ruby)
+# Basic System Requirements (make, gcc, curl, git, zip, unzip, python, ruby, postgres client)
 sudo apt-get update
-sudo apt-get install -y build-essential curl git zip unzip python2.7 ruby-full
+sudo apt-get install -y build-essential curl git zip unzip python2.7 ruby-full postgresql
 
 # Go 1.6.2
 curl -sO https://storage.googleapis.com/golang/go1.6.2.linux-amd64.tar.gz
