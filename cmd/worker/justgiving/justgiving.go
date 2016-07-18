@@ -59,7 +59,7 @@ func HeartBeat() error {
 		return errors.New("missing or invalid JUSTIN_RESULTS_BATCH env var, expected integer value >= 1")
 	}
 	// retrieve the batch (the COALESCE postgres function handles null values)
-	batch, err := conn.Query("SELECT page_id FROM justgiving.page_priority ORDER BY priority, COALESCE(fundraising_result_timestamp, TIMESTAMP '1970-01-01 00:00') LIMIT $1;", batchSize)
+	batch, err := conn.Query("SELECT page_id FROM justgiving.page_priority WHERE priority <> 0 ORDER BY priority, COALESCE(fundraising_result_timestamp, TIMESTAMP '1970-01-01 00:00') LIMIT $1;", batchSize)
 	if err != nil {
 		return fmt.Errorf("error querying justgiving.page_priority %v", err)
 	}
