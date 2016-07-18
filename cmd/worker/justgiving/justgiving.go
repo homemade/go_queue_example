@@ -122,7 +122,7 @@ func HeartBeat() error {
 					// if we have already stored the page, check if the short name has changed...
 					if shortName != p.ShortName() { // ...and if it has, update it
 						sql = `UPDATE justgiving.page SET page_short_name=$1,updated_timestamp=CURRENT_TIMESTAMP WHERE page_id=$2`
-						_, err := conn.Exec(sql, p.ShortName(), p.ID())
+						_, err = conn.Exec(sql, p.ShortName(), p.ID())
 						if err != nil {
 							return fmt.Errorf("error updating justgiving.page %v", err)
 						}
@@ -130,7 +130,7 @@ func HeartBeat() error {
 				}
 
 				// check if the current page is in the batch
-				if inBatch(nextBatch, p.ID()) { // if so, update the results
+				if inBatch(nextBatch, p.ID()) {
 
 					// get the current year, month, day
 					now := time.Now()
@@ -138,8 +138,8 @@ func HeartBeat() error {
 					month := now.Month()
 					year := now.Year()
 
-					// retrieve the latest results (we rate limit this to 1 call per second with a 20 second timeout)
-					ctx, _ := context.WithTimeout(context.Background(), time.Duration(20)*time.Second)
+					// retrieve the latest results (we rate limit this to 1 call per second with a 10 second timeout)
+					ctx, _ := context.WithTimeout(context.Background(), time.Duration(10)*time.Second)
 					if err = JGRL.Wait(ctx); err != nil {
 						// handle time outs / cancellations / overloaded - this is recoverable error (e.g. <subsystem> too busy)
 						return fmt.Errorf("error in JG rate limiter  %v", err)
@@ -149,45 +149,61 @@ func HeartBeat() error {
 						return fmt.Errorf("error fetching justgiving results %v", err)
 					}
 
-					// check if we have already created an initial results record for this page
-					var res uint
-					sql = `SELECT 1 FROM justgiving.fundraising_result WHERE page_id=$1 AND year = 0 and month = 0 and day = 0`
-					err = conn.QueryRow(sql, p.ID()).Scan(&res)
-					if err != nil {
-						if err == pgx.ErrNoRows { // if not create one
-							sql = `INSERT INTO justgiving.fundraising_result (page_id,year,month,day,target,total_raised_percentage_of_target,total_raised_offline,total_raised_online,total_raised_sms,total_estimated_gift_aid)
- VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10);`
-							_, err = conn.Exec(sql, p.ID(), 0, 0, 0, fr.Target, fr.TotalRaisedPercentageOfTarget, fr.TotalRaisedOffline, fr.TotalRaisedOnline, fr.TotalRaisedSMS, fr.TotalEstimatedGiftAid)
-							if err != nil {
-								return fmt.Errorf("error creating initial justgiving.fundraising_result %v", err)
+					// if the page is cancelled set the priority to 0
+					if fr.Cancelled {
+						sql = `UPDATE justgiving.page_priority SET priority=0 WHERE page_id=$1`
+						_, err = conn.Exec(sql, p.ID())
+						if err != nil {
+							return fmt.Errorf("error updating justgiving.page_priority for cancelled page %v", err)
+						}
+					} else { // update the results
+						// check if we have already created an initial results record for this page
+						var res uint
+						sql = `SELECT 1 FROM justgiving.fundraising_result WHERE page_id=$1 AND year = 0 and month = 0 and day = 0`
+						err = conn.QueryRow(sql, p.ID()).Scan(&res)
+						if err != nil {
+							if err == pgx.ErrNoRows { // if not create one
+								sql = `INSERT INTO justgiving.fundraising_result (page_id,year,month,day,target,total_raised_percentage_of_target,total_raised_offline,total_raised_online,total_raised_sms,total_estimated_gift_aid)
+	 VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10);`
+								_, err = conn.Exec(sql, p.ID(), 0, 0, 0, fr.Target, fr.TotalRaisedPercentageOfTarget, fr.TotalRaisedOffline, fr.TotalRaisedOnline, fr.TotalRaisedSMS, fr.TotalEstimatedGiftAid)
+								if err != nil {
+									return fmt.Errorf("error creating initial justgiving.fundraising_result %v", err)
+								}
+							} else {
+								return fmt.Errorf("error querying initial justgiving.fundraising_result %v", err)
 							}
-						} else {
-							return fmt.Errorf("error querying initial justgiving.fundraising_result %v", err)
+						}
+
+						// check if we have already created a results record for this year/month/day
+						sql = `SELECT 1 FROM justgiving.fundraising_result WHERE page_id=$1 AND year = $2 and month = $3 and day = $4`
+						err = conn.QueryRow(sql, p.ID(), year, month, day).Scan(&res)
+						if err != nil {
+							if err == pgx.ErrNoRows { // if not create one
+								sql = `INSERT INTO justgiving.fundraising_result (page_id,year,month,day,target,total_raised_percentage_of_target,total_raised_offline,total_raised_online,total_raised_sms,total_estimated_gift_aid)
+	 VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10);`
+								_, err = conn.Exec(sql, p.ID(), year, month, day, fr.Target, fr.TotalRaisedPercentageOfTarget, fr.TotalRaisedOffline, fr.TotalRaisedOnline, fr.TotalRaisedSMS, fr.TotalEstimatedGiftAid)
+								if err != nil {
+									return fmt.Errorf("error creating justgiving.fundraising_result %v", err)
+								}
+							} else {
+								return fmt.Errorf("error querying justgiving.fundraising_result %v", err)
+							}
+						} else { // otherwise update the existing record
+							sql = `UPDATE justgiving.fundraising_result
+	 SET target=$1,total_raised_percentage_of_target=$2,total_raised_offline=$3,total_raised_online=$4,total_raised_sms=$5,total_estimated_gift_aid=$6,updated_timestamp=CURRENT_TIMESTAMP
+	 WHERE page_id=$7 AND year=$8 AND month=$9 AND day=$10`
+							_, err = conn.Exec(sql, fr.Target, fr.TotalRaisedPercentageOfTarget, fr.TotalRaisedOffline, fr.TotalRaisedOnline, fr.TotalRaisedSMS, fr.TotalEstimatedGiftAid, p.ID(), year, month, day)
+							if err != nil {
+								return fmt.Errorf("error updating justgiving.fundraising_result %v", err)
+							}
 						}
 					}
 
-					// check if we have already created a results record for this year/month/day
-					sql = `SELECT 1 FROM justgiving.fundraising_result WHERE page_id=$1 AND year = $2 and month = $3 and day = $4`
-					err = conn.QueryRow(sql, p.ID(), year, month, day).Scan(&res)
+					// update result timestamp
+					sql = `UPDATE justgiving.page_priority SET fundraising_result_timestamp=CURRENT_TIMESTAMP WHERE page_id=$1`
+					_, err = conn.Exec(sql, p.ID())
 					if err != nil {
-						if err == pgx.ErrNoRows { // if not create one
-							sql = `INSERT INTO justgiving.fundraising_result (page_id,year,month,day,target,total_raised_percentage_of_target,total_raised_offline,total_raised_online,total_raised_sms,total_estimated_gift_aid)
- VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10);`
-							_, err = conn.Exec(sql, p.ID(), year, month, day, fr.Target, fr.TotalRaisedPercentageOfTarget, fr.TotalRaisedOffline, fr.TotalRaisedOnline, fr.TotalRaisedSMS, fr.TotalEstimatedGiftAid)
-							if err != nil {
-								return fmt.Errorf("error creating justgiving.fundraising_result %v", err)
-							}
-						} else {
-							return fmt.Errorf("error querying justgiving.fundraising_result %v", err)
-						}
-					} else { // otherwise update the existing record
-						sql = `UPDATE justgiving.fundraising_result
- SET target=$1,total_raised_percentage_of_target=$2,total_raised_offline=$3,total_raised_online=$4,total_raised_sms=$5,total_estimated_gift_aid=$6,updated_timestamp=CURRENT_TIMESTAMP
- WHERE page_id=$7 AND year=$8 AND month=$9 AND day=$10`
-						_, err := conn.Exec(sql, fr.Target, fr.TotalRaisedPercentageOfTarget, fr.TotalRaisedOffline, fr.TotalRaisedOnline, fr.TotalRaisedSMS, fr.TotalEstimatedGiftAid, p.ID(), year, month, day)
-						if err != nil {
-							return fmt.Errorf("error updating justgiving.fundraising_result %v", err)
-						}
+						return fmt.Errorf("error updating justgiving.page_priority %v", err)
 					}
 
 				}
