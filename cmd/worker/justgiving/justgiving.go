@@ -12,7 +12,6 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/homemade/justin"
-	justin_api "github.com/homemade/justin/api"
 	justin_models "github.com/homemade/justin/models"
 )
 
@@ -31,10 +30,10 @@ func HeartBeat() error {
 		return errors.New("missing justin api key")
 	}
 	ctx := justin.APIKeyContext{
-		APIKey:     key,
-		Env:        justin.Live,
-		Timeout:    (time.Second * 20),
-		HTTPLogger: justin_api.StructuredLogger(os.Stdout),
+		APIKey:         key,
+		Env:            justin.Live,
+		Timeout:        (time.Second * 20),
+		SkipValidation: true,
 	}
 	svc, err := justin.CreateWithAPIKey(ctx)
 	if err != nil {
