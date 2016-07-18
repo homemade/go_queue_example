@@ -5,19 +5,14 @@ import (
 	"github.com/jackc/pgx"
 )
 
-// IndexRequest container.
-// The URL is the url to index content from.
-type IndexRequest struct {
-	URL string `json:"url"`
-}
-
 const (
-
-	// IndexRequestJob queue name
-	IndexRequestJob = "IndexRequests"
 
 	// HeartbeatJob queue name
 	HeartbeatJob = "Heartbeat"
+
+	JustGivingQueue = "JustGiving"
+
+	SalesForceQueue = "SalesForce"
 
 	QueTableSQL = `
 		CREATE TABLE IF NOT EXISTS que_jobs
