@@ -3,6 +3,8 @@ include Makefile.vars
 .PHONY: vendor
 
 vendor: $(GOPATH)/bin/godep
+	@rm -rf Godeps
+	@rm -rf vendor
 	@go get -u github.com/bgentry/que-go
 	@sudo chown vagrant:vagrant /mnt/GoWork/src/github.com/homemade
 	@go get -u github.com/homemade/justin
