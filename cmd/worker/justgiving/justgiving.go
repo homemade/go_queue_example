@@ -13,6 +13,7 @@ import (
 
 	"github.com/homemade/justin"
 	justin_api "github.com/homemade/justin/api"
+	justin_models "github.com/homemade/justin/models"
 )
 
 var JGRL *rate.Limiter
@@ -146,13 +147,18 @@ func HeartBeat() error {
 						// handle time outs / cancellations / overloaded - this is recoverable error (e.g. <subsystem> too busy)
 						return fmt.Errorf("error in JG rate limiter  %v", err)
 					}
-					fr, err := svc.FundraisingPageResults(p)
-					if err != nil {
-						return fmt.Errorf("error fetching justgiving results %v", err)
+
+					serviceable := (p.ShortName() == "") // TODO investigate handling pages wih no short names
+					var fr justin_models.FundraisingResults
+					if serviceable {
+						fr, err = svc.FundraisingPageResults(p)
+						if err != nil {
+							return fmt.Errorf("error fetching justgiving results %v", err)
+						}
 					}
 
-					// if the page is cancelled set the priority to 0
-					if fr.Cancelled {
+					// if the page is cancelled or unserviceable set the priority to 0
+					if fr.Cancelled || !serviceable {
 						sql = `UPDATE justgiving.page_priority SET priority=0 WHERE page_id=$1`
 						_, err = conn.Exec(sql, p.ID())
 						if err != nil {
