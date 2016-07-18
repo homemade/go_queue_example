@@ -32,18 +32,18 @@
 		},
 		{
 			"ImportPath": "github.com/homemade/justin",
-			"Comment": "v1.0.0-4-g6b73444",
-			"Rev": "6b73444cd795898951540840280677b9286b1fe9"
+			"Comment": "v1.0.0-5-g54a6e02",
+			"Rev": "54a6e02c519bd7649b9176dbbdafd03d01f5310c"
 		},
 		{
 			"ImportPath": "github.com/homemade/justin/api",
-			"Comment": "v1.0.0-4-g6b73444",
-			"Rev": "6b73444cd795898951540840280677b9286b1fe9"
+			"Comment": "v1.0.0-5-g54a6e02",
+			"Rev": "54a6e02c519bd7649b9176dbbdafd03d01f5310c"
 		},
 		{
 			"ImportPath": "github.com/homemade/justin/models",
-			"Comment": "v1.0.0-4-g6b73444",
-			"Rev": "6b73444cd795898951540840280677b9286b1fe9"
+			"Comment": "v1.0.0-5-g54a6e02",
+			"Rev": "54a6e02c519bd7649b9176dbbdafd03d01f5310c"
 		},
 		{
 			"ImportPath": "github.com/jackc/pgx",
