@@ -11,6 +11,8 @@ vendor: $(GOPATH)/bin/godep
 	@go get -u golang.org/x/sys/unix
 	@go get -u github.com/go-kit/kit/log
 	@go get -u github.com/kr/logfmt
+	@go get -u golang.org/x/net/context
+	@go get -u golang.org/x/time/rate
 	@godep save ./...
 
 $(GOPATH)/bin/godep:

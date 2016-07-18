@@ -8,9 +8,18 @@ import (
 	"time"
 
 	"github.com/jackc/pgx"
+	"golang.org/x/net/context"
+	"golang.org/x/time/rate"
 
 	"github.com/homemade/justin"
 )
+
+var JGRL *rate.Limiter
+
+func init() {
+	// we setup a rate limit for JG API calls of 1 per second
+	JGRL = rate.NewLimiter(rate.Limit(1), 1)
+}
 
 func HeartBeat() error {
 
@@ -82,7 +91,7 @@ func HeartBeat() error {
 
 	// if we have some events to sync...
 	if len(events) > 0 {
-		// retieve pages for the events
+		// retrieve pages for the events
 		for _, e := range events {
 			next, err := svc.FundraisingPagesForEvent(e)
 			if err != nil {
@@ -129,7 +138,12 @@ func HeartBeat() error {
 					month := now.Month()
 					year := now.Year()
 
-					// retrieve the latest results
+					// retrieve the latest results (we rate limit this to 1 call per second with a 20 second timeout)
+					ctx, _ := context.WithTimeout(context.Background(), time.Duration(20)*time.Second)
+					if err = JGRL.Wait(ctx); err != nil {
+						// handle time outs / cancellations / overloaded - this is recoverable error (e.g. <subsystem> too busy)
+						return fmt.Errorf("error in JG rate limiter  %v", err)
+					}
 					fr, err := svc.FundraisingPageResults(p)
 					if err != nil {
 						return fmt.Errorf("error fetching justgiving results %v", err)
