@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -11,11 +12,15 @@ import (
 	que "github.com/bgentry/que-go"
 
 	"github.com/homemade/jgforce"
-
-
 )
 
 func main() {
+
+	// read heartbeat
+	htbt, err := strconv.Atoi(os.Getenv("HEARTBEAT"))
+	if htbt < 1 || err != nil {
+		log.WithField("HEARTBEAT", htbt).Fatal(fmt.Sprintf("Unable to setup heartbeat %v", err))
+	}
 
 	// Setup queue / database
 	dbURL := os.Getenv("DATABASE_URL")
@@ -30,16 +35,25 @@ func main() {
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
 
 	// Kick off timer
-	ticker := time.NewTicker(time.Second * 60)
+	ticker := time.NewTicker(time.Minute * time.Duration(htbt))
 	go func() {
 		for t := range ticker.C {
-			log.WithField("tick", t).Info("Queuing heartbeat event")
-			// Queue the heartbeat event
-			j := que.Job{
-				Type: jgforce.HeartbeatJob,
+			// add heartbeat event to our 2 queues
+			log.WithField("tick", t).Info(fmt.Sprintf("Adding heartbeat event to queue %s", jgforce.JustGivingQueue))
+			j1 := que.Job{
+				Queue: jgforce.JustGivingQueue,
+				Type:  jgforce.HeartbeatJob,
 			}
-			if err := qc.Enqueue(&j); err != nil {
-				log.Error(fmt.Errorf("Unable to queue heartbeat event %v",err))
+			if err := qc.Enqueue(&j1); err != nil {
+				log.Error(fmt.Errorf("Unable to add heartbeat event to queue %s, error %v", jgforce.JustGivingQueue, err))
+			}
+			log.WithField("tick", t).Info(fmt.Sprintf("Adding heartbeat event to queue %s", jgforce.SalesForceQueue))
+			j2 := que.Job{
+				Queue: jgforce.SalesForceQueue,
+				Type:  jgforce.HeartbeatJob,
+			}
+			if err := qc.Enqueue(&j2); err != nil {
+				log.Error(fmt.Errorf("Unable to add heartbeat event to queue %s, error %v", jgforce.SalesForceQueue, err))
 			}
 		}
 

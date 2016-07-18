@@ -8,32 +8,21 @@
 	"Deps": [
 		{
 			"ImportPath": "github.com/Sirupsen/logrus",
-			"Comment": "v0.8.2-11-g30f9ce2",
-			"Rev": "30f9ce2b39f86616d5a95a367c8c249700e6ae0c"
+			"Comment": "v0.10.0-28-ga283a10",
+			"Rev": "a283a10442df8dc09befd873fab202bf8a253d6a"
 		},
 		{
 			"ImportPath": "github.com/bgentry/que-go",
-			"Rev": "f18340e98b6af0edfaa4fec11de2182346965639"
-		},
-		{
-			"ImportPath": "github.com/codegangsta/negroni",
-			"Comment": "v0.1-70-gc7477ad",
-			"Rev": "c7477ad8e330bef55bf1ebe300cf8aa67c492d1b"
+			"Rev": "e2fa4b8f0b5ef9ca86ab2d59f0ace88b96ac1a50"
 		},
 		{
 			"ImportPath": "github.com/jackc/pgx",
-			"Comment": "v2.5.0-7-gdb53003",
-			"Rev": "db5300358a14c176a55627536da74d077aff92ae"
+			"Comment": "v2.8.1-53-g558d555",
+			"Rev": "558d5550cf5c08e7192eb2eb8635f21f4b700ff5"
 		},
 		{
-			"ImportPath": "github.com/lib/pq",
-			"Comment": "go1.0-cutoff-107-g4dd446e",
-			"Rev": "4dd446efc17690bc53e154025146f73203b18309"
-		},
-		{
-			"ImportPath": "github.com/lib/pq/oid",
-			"Comment": "go1.0-cutoff-107-g4dd446e",
-			"Rev": "4dd446efc17690bc53e154025146f73203b18309"
+			"ImportPath": "golang.org/x/sys/unix",
+			"Rev": "b518c298ac9dc94b6ac0757394f50d10c5dfa25a"
 		}
 	]
 }

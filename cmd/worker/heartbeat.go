@@ -1,48 +1,37 @@
 package main
 
 import (
-	"database/sql"
+	"fmt"
 	"os"
 
 	log "github.com/Sirupsen/logrus"
-	_ "github.com/lib/pq"
+	"github.com/jackc/pgx"
 )
 
 func heartbeat() error {
+	// connect to salesforce database
+	dbURL := os.Getenv("DATABASE_URL")
+	connCfg, err := pgx.ParseURI(dbURL)
+	if err != nil {
+		return fmt.Errorf("error configuring connection to salesforce database %v", err)
+	}
+	conn, err := pgx.Connect(connCfg)
+	if err != nil {
+		return fmt.Errorf("error connecting to salesforce database %v", err)
+	}
+	defer conn.Close()
 
-	querySalesForce()
+	// sync data
+
+	// first query salesforce to build a list of records to sync
+	_, err := salesforce.Query(conn)
+	if err != nil {
+		return fmt.Errorf("error querying salesforce records %v", err)
+	}
 
 	log.Info("TODO query JG for latest info on fundraising pages...")
 
 	log.Info("TODO update SalesForce database with latest info on fundraising pages...")
 
 	return nil
-}
-
-func querySalesForce() {
-	dbURL := os.Getenv("DATABASE_URL")
-	db, err := sql.Open("postgres", dbURL)
-	if err != nil {
-		log.WithField("DATABASE_URL", dbURL).Error("Errors connecting to salesforce database: ", err)
-		return
-	}
-	rows, err := db.Query("SELECT charityid__c,eventid__c,pageshortname__c,pageid__c,pageemail__c FROM salesforce.jgpage__c")
-	if err != nil {
-		log.WithField("DATABASE_URL", dbURL).Error("Errors reading fundraising pages from salesforce database: ", err)
-		return
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var charityID string
-		var eventID string
-		var pageShortName string
-		var pageID string
-		var pageEmail string
-		if err := rows.Scan(&charityID, &eventID, &pageShortName, &pageID, &pageEmail); err != nil {
-			log.WithField("DATABASE_URL", dbURL).Error("Errors scanning fundraising pages from salesforce database: ", err)
-			return
-		}
-
-		log.WithField("charityID", charityID).WithField("eventID", eventID).WithField("pageShortName", pageShortName).WithField("pageID", pageID).WithField("pageEmail", pageEmail).Info("TODO convert salesforce data for JG api call ...")
-	}
 }
