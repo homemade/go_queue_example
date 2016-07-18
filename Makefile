@@ -9,6 +9,8 @@ vendor: $(GOPATH)/bin/godep
 	@go get -u github.com/jackc/pgx
 	@go get -u github.com/Sirupsen/logrus
 	@go get -u golang.org/x/sys/unix
+	@go get -u github.com/go-kit/kit/log
+	@go get -u github.com/kr/logfmt
 	@godep save ./...
 
 $(GOPATH)/bin/godep:

@@ -16,9 +16,43 @@
 			"Rev": "e2fa4b8f0b5ef9ca86ab2d59f0ace88b96ac1a50"
 		},
 		{
+			"ImportPath": "github.com/go-kit/kit/log",
+			"Comment": "v0.1.0-49-gf8893ab",
+			"Rev": "f8893abd5ac91b5f70ada8df8a1e60f6a31142f5"
+		},
+		{
+			"ImportPath": "github.com/go-logfmt/logfmt",
+			"Comment": "v0.2.0-9-gd432719",
+			"Rev": "d4327190ff838312623b09bfeb50d7c93c8d9c1d"
+		},
+		{
+			"ImportPath": "github.com/go-stack/stack",
+			"Comment": "v1.5.2",
+			"Rev": "100eb0c0a9c5b306ca2fb4f165df21d80ada4b82"
+		},
+		{
+			"ImportPath": "github.com/homemade/justin",
+			"Comment": "v1.0.0-3-g11dcea1",
+			"Rev": "11dcea10cb8057ad462496bf872ecd33251ba2b6"
+		},
+		{
+			"ImportPath": "github.com/homemade/justin/api",
+			"Comment": "v1.0.0-3-g11dcea1",
+			"Rev": "11dcea10cb8057ad462496bf872ecd33251ba2b6"
+		},
+		{
+			"ImportPath": "github.com/homemade/justin/models",
+			"Comment": "v1.0.0-3-g11dcea1",
+			"Rev": "11dcea10cb8057ad462496bf872ecd33251ba2b6"
+		},
+		{
 			"ImportPath": "github.com/jackc/pgx",
 			"Comment": "v2.8.1-53-g558d555",
 			"Rev": "558d5550cf5c08e7192eb2eb8635f21f4b700ff5"
+		},
+		{
+			"ImportPath": "github.com/kr/logfmt",
+			"Rev": "b84e30acd515aadc4b783ad4ff83aff3299bdfe0"
 		},
 		{
 			"ImportPath": "golang.org/x/sys/unix",
