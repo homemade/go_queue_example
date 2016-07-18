@@ -27,7 +27,7 @@ CREATE TABLE justgiving.page_priority(
   priority                      INT          NOT NULL DEFAULT 9,
 	created_timestamp 	          TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	updated_timestamp 	          TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	fundraising_result_timestamp 	TIMESTAMP,  
+	fundraising_result_timestamp 	TIMESTAMP,
 	PRIMARY KEY (page_id)
 );
 CREATE INDEX priority_page_priority_index ON justgiving.page_priority(priority);
@@ -38,12 +38,12 @@ CREATE TABLE justgiving.fundraising_result(
 	year 															INT NOT NULL,
 	month 														INT NOT NULL,
 	day 															INT NOT NULL,
-	target 														VARCHAR(24) NOT NULL,
-	total_raised_percentage_of_target VARCHAR(24) NOT NULL,
-	total_raised_offline           		VARCHAR(24) NOT NULL,
-	total_raised_online            		VARCHAR(24) NOT NULL,
-	total_raised_sms               		VARCHAR(24) NOT NULL,
-	total_estimated_gift_aid       		VARCHAR(24) NOT NULL,
+	target 														VARCHAR(48) NOT NULL,
+	total_raised_percentage_of_target VARCHAR(48) NOT NULL,
+	total_raised_offline           		VARCHAR(48) NOT NULL,
+	total_raised_online            		VARCHAR(48) NOT NULL,
+	total_raised_sms               		VARCHAR(48) NOT NULL,
+	total_estimated_gift_aid       		VARCHAR(48) NOT NULL,
 	created_timestamp 								TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	updated_timestamp 								TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY (page_id, year, month, day)
