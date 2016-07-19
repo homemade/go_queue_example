@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/homemade/jgforce"
 	"github.com/homemade/jgforce/cmd/worker/justgiving"
@@ -43,10 +44,12 @@ func main() {
 		jgforce.HeartbeatJob: jgJob,
 	}, 1)
 	jgWorkers.Queue = jgforce.JustGivingQueue
+	jgWorkers.Interval = 30 * time.Second // our heartbeat is set in minutes so no point polling too often
 	sfWorkers := que.NewWorkerPool(qc, que.WorkMap{
 		jgforce.HeartbeatJob: sfJob,
 	}, 1)
 	sfWorkers.Queue = jgforce.SalesForceQueue
+	sfWorkers.Interval = 30 * time.Second // our heartbeat is set in minutes so no point polling too often
 
 	// Catch signal so we can shutdown gracefully
 	sigCh := make(chan os.Signal)
