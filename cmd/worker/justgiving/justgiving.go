@@ -73,7 +73,6 @@ func HeartBeat() error {
 	if err != nil {
 		return fmt.Errorf("error querying justgiving.page_priority %v", err)
 	}
-	defer batch.Close()
 	var nextBatch []uint
 	for batch.Next() {
 		var pageID uint
@@ -84,23 +83,24 @@ func HeartBeat() error {
 			nextBatch = append(nextBatch, pageID)
 		}
 	}
+	batch.Close()
 
 	// next, retrieve events to sync
 	rows, err := conn.Query("SELECT event_id FROM justgiving.event WHERE priority <> 0 ORDER BY priority;")
 	if err != nil {
 		return fmt.Errorf("error querying justgiving.event %v", err)
 	}
-	defer rows.Close()
 	var events []uint
 	for rows.Next() {
 		var eventID uint
-		if err := rows.Scan(&eventID); err != nil {
+		if err = rows.Scan(&eventID); err != nil {
 			return fmt.Errorf("error reading from justgiving.event %v", err)
 		}
 		if eventID > 0 {
 			events = append(events, eventID)
 		}
 	}
+	rows.Close()
 
 	// if we have some events to sync...
 	if len(events) > 0 {
