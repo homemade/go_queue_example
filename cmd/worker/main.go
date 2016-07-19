@@ -8,6 +8,7 @@ import (
 
 	"github.com/homemade/jgforce"
 	"github.com/homemade/jgforce/cmd/worker/justgiving"
+	"github.com/homemade/jgforce/cmd/worker/salesforce"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/bgentry/que-go"
@@ -15,16 +16,23 @@ import (
 )
 
 func jgJob(j *que.Job) error {
+	stopwatch := time.Now()
 	err := justgiving.HeartBeat()
 	if err != nil {
-		log.Errorf("error in justgiving worker %v", err)
+		log.Errorf("error in justgiving worker after running for %v %v", time.Since(stopwatch), err)
 	}
+	log.Errorf("justgiving worker took %v to complete", time.Since(stopwatch))
 	return err
 }
 
 func sfJob(j *que.Job) error {
-	log.Info("TODO SalesForce worker...")
-	return nil
+	stopwatch := time.Now()
+	err := salesforce.HeartBeat()
+	if err != nil {
+		log.Errorf("error in salesforce worker after running for %v %v", time.Since(stopwatch), err)
+	}
+	log.Errorf("salesforce worker took %v to complete", time.Since(stopwatch))
+	return err
 }
 
 func main() {
