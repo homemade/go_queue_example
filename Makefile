@@ -20,8 +20,11 @@ vendor: $(GOPATH)/bin/godep
 $(GOPATH)/bin/godep:
 	@go get github.com/tools/godep
 
-test-heartbeat:
+run-heartbeat:
 	@export DATABASE_URL=$(DATABASE_URL) && export HEARTBEAT=$(HEARTBEAT) && go run cmd/clock/main.go
 
 test-workers:
+	@export DATABASE_URL=$(DATABASE_URL) && export JUSTIN_APIKEY=$(JUSTIN_APIKEY) && export JUSTIN_RESULTS_BATCH=$(JUSTIN_RESULTS_BATCH) && go test -v
+
+run-workers:
 	@export DATABASE_URL=$(DATABASE_URL) && export JUSTIN_APIKEY=$(JUSTIN_APIKEY) && export JUSTIN_RESULTS_BATCH=$(JUSTIN_RESULTS_BATCH) && go run cmd/worker/main.go

@@ -62,6 +62,8 @@ func main() {
 	sig := <-sigCh
 	log.WithField("signal", sig).Info("Signal received. Shutting down.")
 
+	justgiving.Shutdown()
+
 	jgWorkers.Shutdown()
 	sfWorkers.Shutdown()
 }

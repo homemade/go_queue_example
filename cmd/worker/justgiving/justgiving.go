@@ -7,19 +7,30 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/jackc/pgx"
 	"golang.org/x/net/context"
 	"golang.org/x/time/rate"
+
+	"github.com/jackc/pgx"
 
 	"github.com/homemade/justin"
 	justin_models "github.com/homemade/justin/models"
 )
 
 var JGRL *rate.Limiter
+var JGRLCtx context.Context
+var JGRLCanc context.CancelFunc
 
 func init() {
-	// we setup a rate limit for JG API calls of 1 per second
-	JGRL = rate.NewLimiter(rate.Limit(1), 1)
+	// we setup a rate limit for JG API calls of 2 per second
+	// TODO calculate his based on batch size and heartbeat env vars
+	JGRL = rate.NewLimiter(rate.Limit(0.5), 2)
+	JGRLCtx, JGRLCanc = context.WithCancel(context.Background())
+}
+
+func Shutdown() {
+	// cancel any pending rate limiter
+	JGRLCanc()
+
 }
 
 func HeartBeat() error {
@@ -95,6 +106,12 @@ func HeartBeat() error {
 	if len(events) > 0 {
 		// retrieve pages for the events
 		for _, e := range events {
+
+			// we rate limit this call to the justgiving api
+			if err = JGRL.Wait(JGRLCtx); err != nil {
+				return fmt.Errorf("error in rate limiter for FundraisingPagesForEvent (probably a legitimate shutdown by Heroku) %v", err)
+			}
+
 			next, err := svc.FundraisingPagesForEvent(e)
 			if err != nil {
 				return fmt.Errorf("error fetching pages for event id %d %v", e, err)
@@ -140,19 +157,20 @@ func HeartBeat() error {
 					month := now.Month()
 					year := now.Year()
 
-					// retrieve the latest results (we rate limit this to 1 call per second with a 10 second timeout)
-					ctx, _ := context.WithTimeout(context.Background(), time.Duration(10)*time.Second)
-					if err = JGRL.Wait(ctx); err != nil {
-						// handle time outs / cancellations / overloaded - this is recoverable error (e.g. <subsystem> too busy)
-						return fmt.Errorf("error in JG rate limiter  %v", err)
+					// retrieve the latest results (we rate limit this call to the justgiving api)
+					if err = JGRL.Wait(JGRLCtx); err != nil {
+						return fmt.Errorf("error in rate limiter for FundraisingPageResults (probably a legitimate shutdown by Heroku) %v", err)
 					}
 
-					serviceable := (p.ShortName() == "") // TODO investigate handling pages wih no short names
+					serviceable := (p.ShortName() != "") // TODO investigate handling pages wih no short names
 					var fr justin_models.FundraisingResults
 					if serviceable {
 						fr, err = svc.FundraisingPageResults(p)
 						if err != nil {
-							return fmt.Errorf("error fetching justgiving results %v", err)
+							// if there was an error try and bump the priority of the page
+							sql = `UPDATE justgiving.page_priority SET priority=priority+1 WHERE page_id=$1`
+							conn.Exec(sql, p.ID())
+							return fmt.Errorf("error fetching justgiving results for page id %d with short name `%s` %v", p.ID(), p.ShortName(), err)
 						}
 					}
 
