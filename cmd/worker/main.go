@@ -13,11 +13,6 @@ import (
 	"github.com/jackc/pgx"
 )
 
-var (
-	qc      *que.Client
-	pgxpool *pgx.ConnPool
-)
-
 func jgJob(j *que.Job) error {
 	err := justgiving.HeartBeat()
 	if err != nil {
@@ -32,8 +27,10 @@ func sfJob(j *que.Job) error {
 }
 
 func main() {
-
+	var qc *que.Client
+	var pgxpool *pgx.ConnPool
 	var err error
+
 	dbURL := os.Getenv("DATABASE_URL")
 	pgxpool, qc, err = jgforce.Setup(dbURL)
 	if err != nil {

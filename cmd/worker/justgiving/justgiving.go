@@ -23,7 +23,7 @@ var JGRLCanc context.CancelFunc
 func init() {
 	// we setup a rate limit for JG API calls of 2 per second
 	// TODO calculate his based on batch size and heartbeat env vars
-	JGRL = rate.NewLimiter(rate.Limit(0.5), 2)
+	JGRL = rate.NewLimiter(rate.Limit(2), 2)
 	JGRLCtx, JGRLCanc = context.WithCancel(context.Background())
 }
 
@@ -109,7 +109,9 @@ func HeartBeat() error {
 
 			// we rate limit this call to the justgiving api
 			if err = JGRL.Wait(JGRLCtx); err != nil {
-				return fmt.Errorf("error in rate limiter for FundraisingPagesForEvent (probably a legitimate shutdown by Heroku) %v", err)
+				// just return on error - probably a legitimate shutdown by Heroku
+				// (we don't want to fill up the job queue with these errors)
+				return nil
 			}
 
 			next, err := svc.FundraisingPagesForEvent(e)
@@ -159,7 +161,9 @@ func HeartBeat() error {
 
 					// retrieve the latest results (we rate limit this call to the justgiving api)
 					if err = JGRL.Wait(JGRLCtx); err != nil {
-						return fmt.Errorf("error in rate limiter for FundraisingPageResults (probably a legitimate shutdown by Heroku) %v", err)
+						// just return on error - probably a legitimate shutdown by Heroku
+						// (we don't want to fill up the job queue with these errors)
+						return nil
 					}
 
 					serviceable := (p.ShortName() != "") // TODO investigate handling pages wih no short names
