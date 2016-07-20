@@ -5,6 +5,12 @@ CREATE TABLE justgiving.event(
    charity_id 				INT      	NOT NULL,
    event_id 					INT      	NOT NULL,
    priority           INT       NOT NULL DEFAULT 9,
+   name               VARCHAR(255),
+   event_type         VARCHAR(255),
+   location           VARCHAR(255),
+   completion_date 	  TIMESTAMP,
+   expiry_date  	    TIMESTAMP,
+   start_date 	      TIMESTAMP,
 	 created_timestamp 	TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	 updated_timestamp 	TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	 PRIMARY KEY (charity_id,event_id)

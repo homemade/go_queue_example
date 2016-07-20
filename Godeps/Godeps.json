@@ -32,18 +32,18 @@
 		},
 		{
 			"ImportPath": "github.com/homemade/justin",
-			"Comment": "v1.0.0-5-g54a6e02",
-			"Rev": "54a6e02c519bd7649b9176dbbdafd03d01f5310c"
+			"Comment": "v1.0.0-10-gdd7a8e6",
+			"Rev": "dd7a8e6a8ed50f19a476b4056609dbec5a399f0d"
 		},
 		{
 			"ImportPath": "github.com/homemade/justin/api",
-			"Comment": "v1.0.0-5-g54a6e02",
-			"Rev": "54a6e02c519bd7649b9176dbbdafd03d01f5310c"
+			"Comment": "v1.0.0-10-gdd7a8e6",
+			"Rev": "dd7a8e6a8ed50f19a476b4056609dbec5a399f0d"
 		},
 		{
 			"ImportPath": "github.com/homemade/justin/models",
-			"Comment": "v1.0.0-5-g54a6e02",
-			"Rev": "54a6e02c519bd7649b9176dbbdafd03d01f5310c"
+			"Comment": "v1.0.0-10-gdd7a8e6",
+			"Rev": "dd7a8e6a8ed50f19a476b4056609dbec5a399f0d"
 		},
 		{
 			"ImportPath": "github.com/jackc/pgx",
@@ -56,7 +56,7 @@
 		},
 		{
 			"ImportPath": "golang.org/x/net/context",
-			"Rev": "3797cd8864994d713d909eda5e61ede8683fdc12"
+			"Rev": "4d38db76854b199960801a1734443fd02870d7e1"
 		},
 		{
 			"ImportPath": "golang.org/x/sys/unix",

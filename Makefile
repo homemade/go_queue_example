@@ -27,4 +27,4 @@ run-workers:
 	@export DATABASE_URL=$(DATABASE_URL) && export JUSTIN_APIKEY=$(JUSTIN_APIKEY) && export JUSTIN_RESULTS_BATCH=$(JUSTIN_RESULTS_BATCH) && go run cmd/worker/main.go
 
 test-salesforce-worker:
-	@export DATABASE_URL=$(DATABASE_URL) && export JUSTIN_APIKEY=$(JUSTIN_APIKEY) && go test -v --run TestSalesForce
+	@export DATABASE_URL=$(DATABASE_URL) && export JUSTIN_APIKEY=$(JUSTIN_APIKEY) && export JUSTIN_CHARITY=$(JUSTIN_CHARITY) && go test -v --run TestSalesForce

@@ -179,7 +179,7 @@ func HeartBeat() error {
 					}
 
 					// if the page is cancelled or unserviceable set the priority to 0
-					if fr.Cancelled || !serviceable {
+					if fr.PageCancelled || !serviceable {
 						sql = `UPDATE justgiving.page_priority SET priority=0 WHERE page_id=$1`
 						_, err = conn.Exec(sql, p.ID())
 						if err != nil {
