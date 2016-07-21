@@ -68,6 +68,7 @@ func HeartBeat() error {
 	if err != nil {
 		return fmt.Errorf("error fetching default page priority from justgiving database %v", err)
 	}
+	maxPriority := defaultPagePriority + 10 // every error on a page bumps the priority by 1 (this is in effect max retry for errors)
 
 	// we update results in batches so as not to overload the justgiving api
 	batchSize, err := strconv.Atoi(os.Getenv("JUSTIN_RESULTS_BATCH"))
@@ -79,8 +80,8 @@ func HeartBeat() error {
 	// (the COALESCE postgres function handles null values)
 	// finally the results are limited based on the batch size
 	batch, err := conn.Query(`SELECT page_id FROM justgiving.page_priority
- WHERE priority > 0 AND (fundraising_result_timestamp IS NULL OR fundraising_result_timestamp < (CURRENT_TIMESTAMP - INTERVAL '2 hours'))
- ORDER BY priority, COALESCE(fundraising_result_timestamp, TIMESTAMP '1970-01-01 00:00') LIMIT $1;`, batchSize)
+ WHERE priority > 0 AND priority <= $2 AND (fundraising_result_timestamp IS NULL OR fundraising_result_timestamp < (CURRENT_TIMESTAMP - INTERVAL ' hours'))
+ ORDER BY priority, COALESCE(fundraising_result_timestamp, TIMESTAMP '1970-01-01 00:00') LIMIT $1;`, batchSize, maxPriority)
 	if err != nil {
 		return fmt.Errorf("error querying justgiving.page_priority %v", err)
 	}
