@@ -45,7 +45,12 @@ func HeartBeat() error {
 	defer conn.Close()
 
 	// next, retrieve new contacts
-	sql := `SELECT c.sfid, c.jg_charity_id__c, c.event_id__c, c.fundraising_page_id__c, c.fundraising_page_url__c, c.team_page_url__c, c.email
+	sql := `SELECT c.sfid, c.jg_charity_id__c, c.event_id__c, c.fundraising_page_id__c,
+ c.fundraising_page_url__c, c.fundraising_team_page_url__c,
+ CASE WHEN c.fundraiser_jg_email__c IS NULL OR c.fundraiser_jg_email__c='' THEN c.email
+ 	ELSE c.fundraiser_jg_email__c
+ END AS email
+
  FROM salesforce.contact c LEFT OUTER JOIN salesforce.donation_stats__c d
  ON (c.sfid = d.related_contact_record__c)
  WHERE d.sfid IS NULL ORDER BY c.systemmodstamp DESC;`
@@ -60,26 +65,63 @@ func HeartBeat() error {
 		if err := contacts.Scan(&r.ID, &r.CharityID, &r.EventID, &r.PageID, &r.PageURL, &r.TeamPageURL, &r.Email); err != nil {
 			return fmt.Errorf("error reading from new salesforce.contacts %v", err)
 		}
-		if *r.ID != "" {
+		// TODO handle team pages
+		if r.ID != nil && *r.ID != "" && (r.TeamPageURL == nil || *r.TeamPageURL == "") {
 			crecs = append(crecs, r)
 		}
 	}
 	contacts.Close()
 
 	// try and find a justgiving fundraising page for the new contacts
+
 	for _, c := range crecs {
-		// our order of precedence is:
-		// 1. Try id first
-		charityID := uint(0)
-		eventID := uint(0)
-		pageID := uint(0)
-		// TODO pending data import
+		// get salesforce contact id for reference
+		sfcid := ""
+		if c.ID != nil {
+			sfcid = *c.ID
+		}
+		// our order of precedence for the search is:
+		// 1. Try ids
+
+		// try and use default charity id if none is provided
+		rawCharityID := 0
+		if c.CharityID == nil || *c.CharityID == "" {
+			rawCharityID, err = strconv.Atoi(os.Getenv("JUSTIN_CHARITY"))
+			if err != nil {
+				log.Warnf("failed to set charity id from default %s %v", os.Getenv("JUSTIN_CHARITY"), err)
+			}
+		} else {
+			rawCharityID, err = strconv.Atoi(*c.CharityID)
+			if err != nil {
+				log.Warnf("invalid charity id in salesforce contact %s %v", sfcid, err)
+			}
+		}
+		charityID := uint(rawCharityID)
+
+		rawEventID := 0
+		if c.EventID != nil && *c.EventID != "" {
+			rawEventID, err = strconv.Atoi(*c.EventID)
+			if err != nil {
+				log.Warnf("invalid event id in salesforce contact %s %v", sfcid, err)
+			}
+		}
+		eventID := uint(rawEventID)
+
+		rawPageID := 0
+		if c.PageID != nil && *c.PageID != "" {
+			rawPageID, err = strconv.Atoi(*c.PageID)
+			if err != nil {
+				log.Warnf("invalid page id in salesforce contact %s %v", sfcid, err)
+			}
+		}
+		pageID := uint(rawPageID)
+
 		found, err := searchForPageUsingID(svc, conn, charityID, eventID, pageID, c.ID)
 		if err != nil {
 			return err
 		}
 		if !found {
-			// 2. If we couldn't find a match with the id, try the short name
+			// 2. If we couldn't find a match with the id, if we can, try the short name
 			shortName := ""
 			// TODO pending data import
 			found, err = searchForPageUsingShortName(svc, conn, shortName)
@@ -88,9 +130,8 @@ func HeartBeat() error {
 			}
 			if !found {
 				// 3. Finally as a fallback try and use the email address of the contact
-				// TODO maybe we should ony do this when we have a valid c.EventID
 				if c.Email != nil {
-					_, err = searchForPageUsingEmail(svc, conn, c)
+					_, err = searchForPageUsingEmail(svc, conn, charityID, c)
 					if err != nil {
 						return err
 					}
@@ -101,7 +142,6 @@ func HeartBeat() error {
 	// NOTE: the search functions handle creation of donation stats master records when a matching page is found
 
 	// TODO update donation stats detail records
-
 	return nil
 }
 
@@ -124,24 +164,17 @@ func searchForPageUsingID(svc *justin.Service, conn *pgx.Conn, charityID uint, e
 	res := 0
 	err := conn.QueryRow(sql, pageID).Scan(&res)
 	if err == nil && uint(res) == pageID {
-		// if there is a match bump the page priority so we refresh its results more often
-		// and create a donation stats master record
+		// if there is a match handle it...
 		return true, handleMatch(conn, pageID, contactID)
 	}
 	if err == pgx.ErrNoRows {
-		// if there is no match, if we have a charity id and event id
-		// check event id is in the database and if not add it
+		// if there is no match and we have a charity id and event id
+		// check the event - we might want to add it
 		// (hopefully we will then find a match later - once the events pages are retrieved)
 		if charityID > 0 && eventID > 0 {
-			eventIDs, err := eventIDs(conn)
+			err = checkEvent(svc, conn, charityID, eventID)
 			if err != nil {
 				return false, err
-			}
-			if !in(eventIDs, eventID) {
-				err = addEvent(svc, conn, charityID, eventID, -1) // -1 signifies default priority
-				if err != nil {
-					return false, err
-				}
 			}
 		}
 
@@ -164,7 +197,7 @@ func searchForPageUsingShortName(svc *justin.Service, conn *pgx.Conn, shortName 
 	return false, nil
 }
 
-func searchForPageUsingEmail(svc *justin.Service, conn *pgx.Conn, c ContactRecord) (bool, error) {
+func searchForPageUsingEmail(svc *justin.Service, conn *pgx.Conn, charityID uint, c ContactRecord) (bool, error) {
 	eml := ""
 	if c.Email != nil {
 		eml = *c.Email
@@ -178,21 +211,13 @@ func searchForPageUsingEmail(svc *justin.Service, conn *pgx.Conn, c ContactRecor
 		log.Warnf("failed to parse email address %s in call to searchForPageUsingEmail %v", eml, err)
 		return false, nil
 	}
-	// try and use default charity id if none is provided
-	charityID := 0
-	if c.CharityID == nil || *c.CharityID == "" {
-		charityID, err = strconv.Atoi(os.Getenv("JUSTIN_CHARITY"))
-		if err != nil {
-			log.Warnf("failed to set charity id from default %s %v", os.Getenv("JUSTIN_CHARITY"), err)
-			return false, nil
-		}
-	}
+
 	if charityID == 0 {
 		log.Warn("missing charity id in call to searchForPageUsingEmail")
 		return false, nil
 	}
 
-	fprs, err := svc.FundraisingPagesForCharityAndUser(uint(charityID), *account)
+	fprs, err := svc.FundraisingPagesForCharityAndUser(charityID, *account)
 
 	if err != nil {
 		return false, err
@@ -210,9 +235,16 @@ func searchForPageUsingEmail(svc *justin.Service, conn *pgx.Conn, c ContactRecor
 		matchedCount := 0
 		for i, p := range fprs {
 			if in(events, p.EventID()) {
-				// TODO check page is active (has donations) through call to svc.FundraisingPageResults(p)
-				matchedIndex = i
-				matchedCount = matchedCount + 1
+				// check page is active (has some donations)
+				var fres []FundraisingResults
+				fres, err = results(conn, p.ID(), "LIMIT 1")
+				if err != nil {
+					return false, err
+				}
+				if len(fres) == 1 && fres[0].TotalRaised > 0 {
+					matchedIndex = i
+					matchedCount = matchedCount + 1
+				}
 			}
 		}
 		if matchedCount == 1 {
@@ -220,23 +252,12 @@ func searchForPageUsingEmail(svc *justin.Service, conn *pgx.Conn, c ContactRecor
 			return searchForPageUsingID(svc, conn, p.CharityID(), p.EventID(), p.ID(), c.ID)
 		}
 
-		// if we didn't match the event and it has an event id above our min event id
-		// add the events to our database with a priority of 0 until they can be verified
-		// TODO if possible automate this verification step
-		// TODO use event start date instead of min event id check
-		// TODO maybe we should ony do this where p.EventID == c.EventID
+		// if there is no match then check the event - we might want to add it
 		if matchedCount < 1 {
 			for _, p := range fprs {
-				// refresh events
-				events, err = eventIDs(conn)
+				checkEvent(svc, conn, p.CharityID(), p.EventID())
 				if err != nil {
 					return false, err
-				}
-				if !in(events, p.EventID()) && p.EventID() > 3000000 { // TODO read min event id from env var or maybe query database to retrieve min based on existing events
-					addEvent(svc, conn, p.CharityID(), p.EventID(), 0)
-					if err != nil {
-						return false, err
-					}
 				}
 			}
 		}
@@ -246,7 +267,7 @@ func searchForPageUsingEmail(svc *justin.Service, conn *pgx.Conn, c ContactRecor
 }
 
 func eventIDs(conn *pgx.Conn) ([]uint, error) {
-	rows, err := conn.Query("SELECT event_id FROM justgiving.event WHERE priority <> 0 ORDER BY priority;")
+	rows, err := conn.Query("SELECT event_id FROM justgiving.event WHERE priority > 0 ORDER BY priority;")
 	if err != nil {
 		return nil, fmt.Errorf("error querying justgiving.event %v", err)
 	}
@@ -273,34 +294,50 @@ func in(ids []uint, search uint) bool {
 	return false
 }
 
-func addEvent(svc *justin.Service, conn *pgx.Conn, charityID uint, eventID uint, priority int) error {
-	// retrieve event from justgiving api
-	event, err := svc.Event(eventID)
+func checkEvent(svc *justin.Service, conn *pgx.Conn, charityID uint, eventID uint) error {
+	// make sure this event doesn't already exist in our database
+	eventIDs, err := eventIDs(conn)
 	if err != nil {
-		return fmt.Errorf("error fetching event %d from justgiving %v", eventID, err)
+		return err
 	}
-	eventCompletionDate, err := event.ParseCompletionDate()
-	if err != nil {
-		return fmt.Errorf("error parsing event completion date %s as returned from from justgiving %v", event.CompletionDate, err)
-	}
-	eventExpiryDate, err := event.ParseExpiryDate()
-	if err != nil {
-		return fmt.Errorf("error parsing event expiry date %s as returned from from justgiving %v", event.ExpiryDate, err)
-	}
-	eventStartDate, err := event.ParseStartDate()
-	if err != nil {
-		return fmt.Errorf("error parsing event start date %s as returned from from justgiving %v", event.StartDate, err)
-	}
-
-	sql := `INSERT INTO justgiving.event (charity_id, event_id, name, event_type, location, completion_date, expiry_date, start_date) VALUES($1,$2,$3,$4,$5,$6,$7,$8);`
-	if priority >= 0 { // a priority of -1 uses default priority - see sql above
-		sql = `INSERT INTO justgiving.event (charity_id, event_id, priority, name, event_type, location, completion_date, expiry_date, start_date) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9);`
-		_, err = conn.Exec(sql, charityID, eventID, priority, event.Name, event.Type, event.Location, eventCompletionDate, eventExpiryDate, eventStartDate)
-	} else {
-		_, err = conn.Exec(sql, charityID, eventID, event.Name, event.Type, event.Location, eventCompletionDate, eventExpiryDate, eventStartDate)
-	}
-	if err != nil {
-		return fmt.Errorf("error inserting justgiving.event %d %d %d %v", charityID, eventID, priority, err)
+	if !in(eventIDs, eventID) && eventID > 3000000 { // TODO check using dates
+		// retrieve event from justgiving api
+		event, err := svc.Event(eventID)
+		if err != nil {
+			return fmt.Errorf("error fetching event %d from justgiving %v", eventID, err)
+		}
+		eventStartDate, err := event.ParseStartDate()
+		if err != nil {
+			return fmt.Errorf("error parsing event start date %s as returned from from justgiving %v", event.StartDate, err)
+		}
+		// check we have events like this
+		sql := `SELECT event_id FROM justgiving.event WHERE priority > 0 AND start_date=$1 LIMIT 1`
+		res := 0
+		err = conn.QueryRow(sql, eventStartDate).Scan(&res)
+		if err == nil {
+			var eventCompletionDate time.Time
+			eventCompletionDate, err = event.ParseCompletionDate()
+			if err != nil {
+				return fmt.Errorf("error parsing event completion date %s as returned from from justgiving %v", event.CompletionDate, err)
+			}
+			var eventExpiryDate time.Time
+			eventExpiryDate, err = event.ParseExpiryDate()
+			if err != nil {
+				return fmt.Errorf("error parsing event expiry date %s as returned from from justgiving %v", event.ExpiryDate, err)
+			}
+			// TODO remove priority 0 when we are confident this works
+			// sql := `INSERT INTO justgiving.event (charity_id, event_id, name, event_type, location, completion_date, expiry_date, start_date) VALUES($1,$2,$3,$4,$5,$6,$7,$8);`
+			// _, err = conn.Exec(sql, charityID, eventID, event.Name, event.Type, event.Location, eventCompletionDate, eventExpiryDate, eventStartDate)
+			sql := `INSERT INTO justgiving.event (charity_id, event_id, priority, name, event_type, location, completion_date, expiry_date, start_date) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9);`
+			_, err = conn.Exec(sql, charityID, eventID, 0, event.Name, event.Type, event.Location, eventCompletionDate, eventExpiryDate, eventStartDate)
+			if err != nil {
+				return fmt.Errorf("error inserting justgiving.event %d %d %v", charityID, eventID, err)
+			}
+		} else {
+			if err != pgx.ErrNoRows {
+				return fmt.Errorf("error checking event %d against justgiving.event %v", eventID, err)
+			}
+		}
 	}
 	return nil
 }
@@ -312,14 +349,101 @@ func handleMatch(conn *pgx.Conn, pageID uint, contactID *string) error {
 	if err != nil {
 		return fmt.Errorf("error updating justgiving.page_priority to 5 for page id %d %v", pageID, err)
 	}
-	// and create a donation stats master record
-	// TODO
-	cid := ""
-	if contactID != nil {
-		cid = *contactID
+	// check the page is active (has some donations)
+	var fres []FundraisingResults
+	fres, err = results(conn, pageID, "")
+	if err != nil {
+		return err
+	}
+	// if it is active...
+	if len(fres) > 0 && fres[0].TotalRaised > 0 {
+		// create a donation stats master record
+		initRes := fres[len(fres)-1]
+		sql = `INSERT INTO salesforce.donation_stats__c
+ (fundraising_page_id__c, related_contact_record__c,
+initial_raised_online__c, initial_raised_sms__c, initial_raised_offline__c, intial_estimated_gift_aid__c,
+initial_pledge_amount__c)
+VALUES($1,$2,$3,$4,$5,$6,$7);`
+		_, err = conn.Exec(sql, strconv.FormatInt(int64(pageID), 10), contactID, initRes.TotalRaisedOnline, initRes.TotalRaisedSMS, initRes.TotalRaisedOffline, initRes.TotalEstimatedGiftAid, initRes.Target)
+		if err != nil {
+			return fmt.Errorf("error creating initial salesforce.donation_stats__c %v", err)
+		}
 	}
 
-	log.Infof("TODO create donation stats master record for page id %d and contact id %s", pageID, cid)
-
 	return nil
+}
+
+type FundraisingResults struct {
+	Timestamp             time.Time
+	TotalRaisedOffline    float64
+	TotalRaisedOnline     float64
+	TotalRaisedSMS        float64
+	TotalRaised           float64
+	TotalEstimatedGiftAid float64
+	Target                float64
+}
+
+func results(conn *pgx.Conn, pageID uint, limitSQL string) ([]FundraisingResults, error) {
+	var results []FundraisingResults
+	sql := `SELECT updated_timestamp,
+CASE WHEN total_raised_offline IS NULL OR total_raised_offline='' THEN 0.0
+	ELSE cast(total_raised_offline AS DOUBLE precision)
+END AS raised_offline,
+CASE WHEN total_raised_online IS NULL OR total_raised_online='' THEN 0.0
+	ELSE cast(total_raised_online AS DOUBLE precision)
+END AS raised_online,
+CASE WHEN total_raised_sms IS NULL OR total_raised_sms='' THEN 0.0
+	ELSE cast(total_raised_sms AS DOUBLE precision)
+END AS raised_sms,
+CASE WHEN total_estimated_gift_aid IS NULL OR total_estimated_gift_aid='' THEN 0.0
+	ELSE cast(total_estimated_gift_aid AS DOUBLE precision)
+END AS estimated_gift_aid,
+CASE WHEN target IS NULL OR target='' THEN 0.0
+	ELSE cast(target AS DOUBLE precision)
+END AS target_amount
+ FROM justgiving.fundraising_result r
+WHERE page_id = $1
+ORDER BY r.year DESC, r.month DESC, r.day DESC`
+	if limitSQL != "" {
+		sql = sql + " " + limitSQL
+	}
+	rows, err := conn.Query(sql, pageID)
+	if err != nil {
+		return results, fmt.Errorf("error querying new justgiving.fundraising_result %v", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var r FundraisingResults
+		if err := rows.Scan(&r.Timestamp, &r.TotalRaisedOffline, &r.TotalRaisedOnline, &r.TotalRaisedSMS, &r.TotalEstimatedGiftAid, &r.Target); err != nil {
+			return results, fmt.Errorf("error reading from justgiving.fundraising_result %v", err)
+		}
+		r.TotalRaised = r.TotalRaisedOffline + r.TotalRaisedOnline + r.TotalRaisedSMS
+		results = append(results, r)
+	}
+	return results, nil
+
+}
+
+type DonationStatsDetail struct {
+	TransactionDate  time.Time
+	RaisedOfflineInc float64
+	RaisedOnlineInc  float64
+	RaisedSMSInc     float64
+	EstimatedGiftAid float64
+}
+
+func stats(conn *pgx.Conn, pageID uint, year int, month int, day int) (DonationStatsDetail, error) {
+	var results DonationStatsDetail
+	// TODO
+	// 	sql := `SELECT transaction_date__c,
+	//  raised_offline_incremental__c,
+	//  estimated_gift_aid__c,
+	//  raised_sms_incremental__c,
+	//  transaction_date__c,
+	//  raised_online_incremental__c)
+	//  FROM salesforce.donation_stats__c
+	// WHERE fundraising_page_id__c = $1 and transaction_date__c IS NOT NULL
+	// ORDER BY transaction_date__c`
+	return results, nil
+
 }

@@ -24,7 +24,7 @@ run-heartbeat:
 	@export DATABASE_URL=$(DATABASE_URL) && export HEARTBEAT=$(HEARTBEAT) && go run cmd/clock/main.go
 
 run-workers:
-	@export DATABASE_URL=$(DATABASE_URL) && export JUSTIN_APIKEY=$(JUSTIN_APIKEY) && export JUSTIN_RESULTS_BATCH=$(JUSTIN_RESULTS_BATCH) && go run cmd/worker/main.go
+	@export DATABASE_URL=$(DATABASE_URL) && export JUSTIN_APIKEY=$(JUSTIN_APIKEY) && export JUSTIN_CHARITY=$(JUSTIN_CHARITY) && export JUSTIN_RESULTS_BATCH=$(JUSTIN_RESULTS_BATCH) && go run cmd/worker/main.go
 
 test-salesforce-worker:
 	@export DATABASE_URL=$(DATABASE_URL) && export JUSTIN_APIKEY=$(JUSTIN_APIKEY) && export JUSTIN_CHARITY=$(JUSTIN_CHARITY) && go test -v --run TestSalesForce
