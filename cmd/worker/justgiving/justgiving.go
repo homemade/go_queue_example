@@ -80,8 +80,8 @@ func HeartBeat() error {
 	// (the COALESCE postgres function handles null values)
 	// finally the results are limited based on the batch size
 	batch, err := conn.Query(`SELECT page_id FROM justgiving.page_priority
- WHERE priority > 0 AND priority <= $2 AND (fundraising_result_timestamp IS NULL OR fundraising_result_timestamp < (CURRENT_TIMESTAMP - INTERVAL ' hours'))
- ORDER BY priority, COALESCE(fundraising_result_timestamp, TIMESTAMP '1970-01-01 00:00') LIMIT $1;`, batchSize, maxPriority)
+ WHERE priority > 0 AND priority <= $1 AND (fundraising_result_timestamp IS NULL OR fundraising_result_timestamp < (CURRENT_TIMESTAMP - INTERVAL '2 hours'))
+ ORDER BY priority, COALESCE(fundraising_result_timestamp, TIMESTAMP '1970-01-01 00:00') LIMIT $2;`, maxPriority, batchSize)
 	if err != nil {
 		return fmt.Errorf("error querying justgiving.page_priority %v", err)
 	}
