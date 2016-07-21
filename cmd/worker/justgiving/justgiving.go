@@ -63,13 +63,24 @@ func HeartBeat() error {
 	}
 	defer conn.Close()
 
+	defaultPagePriority := 0
+	defaultPagePriority, err = getDefaultPagePriority(conn)
+	if err != nil {
+		return fmt.Errorf("error fetching default page priority from justgiving database %v", err)
+	}
+
 	// we update results in batches so as not to overload the justgiving api
 	batchSize, err := strconv.Atoi(os.Getenv("JUSTIN_RESULTS_BATCH"))
 	if batchSize < 1 || err != nil {
 		return errors.New("missing or invalid JUSTIN_RESULTS_BATCH env var, expected integer value >= 1")
 	}
-	// retrieve the batch (the COALESCE postgres function handles null values)
-	batch, err := conn.Query("SELECT page_id FROM justgiving.page_priority WHERE priority <> 0 ORDER BY priority, COALESCE(fundraising_result_timestamp, TIMESTAMP '1970-01-01 00:00') LIMIT $1;", batchSize)
+	// retrieve the batch - this searches for non cancelled pages not updated in the last hour
+	// results are then ordered on priority followed by the last updated timestamp
+	// (the COALESCE postgres function handles null values)
+	// finally the results are limited based on the batch size
+	batch, err := conn.Query(`SELECT page_id FROM justgiving.page_priority
+ WHERE priority <> 0 AND (fundraising_result_timestamp IS NULL OR fundraising_result_timestamp < (CURRENT_TIMESTAMP - INTERVAL '1 hours'))
+ ORDER BY priority, COALESCE(fundraising_result_timestamp, TIMESTAMP '1970-01-01 00:00') LIMIT $1;`, batchSize)
 	if err != nil {
 		return fmt.Errorf("error querying justgiving.page_priority %v", err)
 	}
@@ -232,7 +243,14 @@ func HeartBeat() error {
 					sql = `UPDATE justgiving.page_priority SET fundraising_result_timestamp=CURRENT_TIMESTAMP WHERE page_id=$1`
 					_, err = conn.Exec(sql, p.ID())
 					if err != nil {
-						return fmt.Errorf("error updating justgiving.page_priority %v", err)
+						return fmt.Errorf("error updating fundraising_result_timestamp on justgiving.page_priority %v", err)
+					}
+
+					// reset any pages which had their priority bumped due to a previous error but have now succeeded
+					sql = `UPDATE justgiving.page_priority SET priority=$1 WHERE page_id=$2 AND priority > $3`
+					_, err = conn.Exec(sql, defaultPagePriority, p.ID(), defaultPagePriority)
+					if err != nil {
+						return fmt.Errorf("error updating fundraising_result_timestamp on justgiving.page_priority %v", err)
 					}
 
 				}
@@ -252,4 +270,15 @@ func inBatch(batch []uint, search uint) bool {
 		}
 	}
 	return false
+}
+
+func getDefaultPagePriority(conn *pgx.Conn) (int, error) {
+	sql := `SELECT adsrc AS default_value
+ FROM pg_catalog.pg_attrdef pad, pg_catalog.pg_attribute pat, pg_catalog.pg_class pc
+ WHERE pc.relname='page_priority'
+ AND pc.oid=pat.attrelid AND pat.attname='priority'
+ AND pat.attrelid=pad.adrelid AND pat.attnum=pad.adnum;`
+	var result int
+	err := conn.QueryRow(sql).Scan(&result)
+	return result, err
 }
