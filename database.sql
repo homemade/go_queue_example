@@ -54,3 +54,24 @@ CREATE TABLE justgiving.fundraising_result(
 	updated_timestamp 								TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY (page_id, year, month, day)
 );
+
+CREATE VIEW justgiving.event_page_fundraising_result AS
+SELECT p.charity_id, p.event_id, e.name AS event_name, p.page_id, p.page_short_name, r.year, r.month, r.day, r.updated_timestamp,
+CASE WHEN r.total_raised_offline IS NULL OR r.total_raised_offline='' THEN 0.0
+	ELSE cast(r.total_raised_offline AS DOUBLE precision)
+END AS raised_offline,
+CASE WHEN r.total_raised_online IS NULL OR r.total_raised_online='' THEN 0.0
+	ELSE cast(r.total_raised_online AS DOUBLE precision)
+END AS raised_online,
+CASE WHEN r.total_raised_sms IS NULL OR r.total_raised_sms='' THEN 0.0
+	ELSE cast(r.total_raised_sms AS DOUBLE precision)
+END AS raised_sms,
+CASE WHEN r.total_estimated_gift_aid IS NULL OR r.total_estimated_gift_aid='' THEN 0.0
+	ELSE cast(r.total_estimated_gift_aid AS DOUBLE precision)
+END AS estimated_gift_aid,
+CASE WHEN r.target IS NULL OR r.target='' THEN 0.0
+	ELSE cast(r.target AS DOUBLE precision)
+END AS target_amount
+ FROM justgiving.fundraising_result r, justgiving.page p, justgiving.event e
+WHERE p.page_id = r.page_id AND p.event_id = e.event_id
+ORDER BY r.year DESC, r.month DESC, r.day DESC;

@@ -10,7 +10,9 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
+	"github.com/homemade/jgforce/cmd/worker/justgiving"
 	"github.com/homemade/justin"
+
 	"github.com/jackc/pgx"
 )
 
@@ -142,6 +144,12 @@ func HeartBeat() error {
 	// NOTE: the search functions handle creation of donation stats master records when a matching page is found
 
 	// TODO update donation stats detail records
+
+	// plan is 1. get a list of page ids (from donation stats)
+	// 2. call results(page id) - with no limit for each page, then loop through returned results
+	// 3. for each result query donation stats for the year, month, day if no record exists create one
+	// otherwise if record does exist, compare timestamps to see if update nessacary (or might be simpler just to update each time)
+
 	return nil
 }
 
@@ -236,8 +244,8 @@ func searchForPageUsingEmail(svc *justin.Service, conn *pgx.Conn, charityID uint
 		for i, p := range fprs {
 			if in(events, p.EventID()) {
 				// check page is active (has some donations)
-				var fres []FundraisingResults
-				fres, err = results(conn, p.ID(), "LIMIT 1")
+				var fres []justgiving.FundraisingResults
+				fres, err = justgiving.Results(conn, p.ID(), "LIMIT 1")
 				if err != nil {
 					return false, err
 				}
@@ -350,8 +358,8 @@ func handleMatch(conn *pgx.Conn, pageID uint, contactID *string) error {
 		return fmt.Errorf("error updating justgiving.page_priority to 5 for page id %d %v", pageID, err)
 	}
 	// check the page is active (has some donations)
-	var fres []FundraisingResults
-	fres, err = results(conn, pageID, "")
+	var fres []justgiving.FundraisingResults
+	fres, err = justgiving.Results(conn, pageID, "")
 	if err != nil {
 		return err
 	}
@@ -360,90 +368,17 @@ func handleMatch(conn *pgx.Conn, pageID uint, contactID *string) error {
 		// create a donation stats master record
 		initRes := fres[len(fres)-1]
 		sql = `INSERT INTO salesforce.donation_stats__c
- (fundraising_page_id__c, related_contact_record__c,
-initial_raised_online__c, initial_raised_sms__c, initial_raised_offline__c, intial_estimated_gift_aid__c,
-initial_pledge_amount__c)
-VALUES($1,$2,$3,$4,$5,$6,$7);`
-		_, err = conn.Exec(sql, strconv.FormatInt(int64(pageID), 10), contactID, initRes.TotalRaisedOnline, initRes.TotalRaisedSMS, initRes.TotalRaisedOffline, initRes.TotalEstimatedGiftAid, initRes.Target)
+ (fundraising_page_id__c, related_contact_record__c, initial_raised_online__c,
+	initial_raised_sms__c, initial_raised_offline__c, intial_estimated_gift_aid__c, initial_pledge_amount__c,
+	fundraising_portal_used__c, event_id__c, jg_charity_id__c, event_name__c)
+VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11);`
+		_, err = conn.Exec(sql, strconv.FormatInt(int64(pageID), 10), contactID, initRes.TotalRaisedOnline,
+			initRes.TotalRaisedSMS, initRes.TotalRaisedOffline, initRes.TotalEstimatedGiftAid, initRes.Target,
+			"Just Giving", strconv.FormatInt(int64(initRes.EventID), 10), strconv.FormatInt(int64(initRes.CharityID), 10), initRes.EventName)
 		if err != nil {
 			return fmt.Errorf("error creating initial salesforce.donation_stats__c %v", err)
 		}
 	}
 
 	return nil
-}
-
-type FundraisingResults struct {
-	Timestamp             time.Time
-	TotalRaisedOffline    float64
-	TotalRaisedOnline     float64
-	TotalRaisedSMS        float64
-	TotalRaised           float64
-	TotalEstimatedGiftAid float64
-	Target                float64
-}
-
-func results(conn *pgx.Conn, pageID uint, limitSQL string) ([]FundraisingResults, error) {
-	var results []FundraisingResults
-	sql := `SELECT updated_timestamp,
-CASE WHEN total_raised_offline IS NULL OR total_raised_offline='' THEN 0.0
-	ELSE cast(total_raised_offline AS DOUBLE precision)
-END AS raised_offline,
-CASE WHEN total_raised_online IS NULL OR total_raised_online='' THEN 0.0
-	ELSE cast(total_raised_online AS DOUBLE precision)
-END AS raised_online,
-CASE WHEN total_raised_sms IS NULL OR total_raised_sms='' THEN 0.0
-	ELSE cast(total_raised_sms AS DOUBLE precision)
-END AS raised_sms,
-CASE WHEN total_estimated_gift_aid IS NULL OR total_estimated_gift_aid='' THEN 0.0
-	ELSE cast(total_estimated_gift_aid AS DOUBLE precision)
-END AS estimated_gift_aid,
-CASE WHEN target IS NULL OR target='' THEN 0.0
-	ELSE cast(target AS DOUBLE precision)
-END AS target_amount
- FROM justgiving.fundraising_result r
-WHERE page_id = $1
-ORDER BY r.year DESC, r.month DESC, r.day DESC`
-	if limitSQL != "" {
-		sql = sql + " " + limitSQL
-	}
-	rows, err := conn.Query(sql, pageID)
-	if err != nil {
-		return results, fmt.Errorf("error querying new justgiving.fundraising_result %v", err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var r FundraisingResults
-		if err := rows.Scan(&r.Timestamp, &r.TotalRaisedOffline, &r.TotalRaisedOnline, &r.TotalRaisedSMS, &r.TotalEstimatedGiftAid, &r.Target); err != nil {
-			return results, fmt.Errorf("error reading from justgiving.fundraising_result %v", err)
-		}
-		r.TotalRaised = r.TotalRaisedOffline + r.TotalRaisedOnline + r.TotalRaisedSMS
-		results = append(results, r)
-	}
-	return results, nil
-
-}
-
-type DonationStatsDetail struct {
-	TransactionDate  time.Time
-	RaisedOfflineInc float64
-	RaisedOnlineInc  float64
-	RaisedSMSInc     float64
-	EstimatedGiftAid float64
-}
-
-func stats(conn *pgx.Conn, pageID uint, year int, month int, day int) (DonationStatsDetail, error) {
-	var results DonationStatsDetail
-	// TODO
-	// 	sql := `SELECT transaction_date__c,
-	//  raised_offline_incremental__c,
-	//  estimated_gift_aid__c,
-	//  raised_sms_incremental__c,
-	//  transaction_date__c,
-	//  raised_online_incremental__c)
-	//  FROM salesforce.donation_stats__c
-	// WHERE fundraising_page_id__c = $1 and transaction_date__c IS NOT NULL
-	// ORDER BY transaction_date__c`
-	return results, nil
-
 }
