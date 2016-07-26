@@ -52,7 +52,6 @@ func HeartBeat() error {
  CASE WHEN c.fundraiser_jg_email__c IS NULL OR c.fundraiser_jg_email__c='' THEN c.email
  	ELSE c.fundraiser_jg_email__c
  END AS email
-
  FROM salesforce.contact c LEFT OUTER JOIN salesforce.donation_stats__c d
  ON (c.sfid = d.related_contact_record__c)
  WHERE d.sfid IS NULL ORDER BY c.systemmodstamp DESC;`
@@ -248,9 +247,9 @@ FROM salesforce.donation_stats__c WHERE fundraising_page_id__c = $1 AND transact
 						runEstimatedGiftAid = fr.TotalEstimatedGiftAid
 						runTargetAmount = fr.Target
 						if insertRequired {
-							log.Infof("inserting donation stats detail record for page id %s and year %d month %d and day %d %v", p, fr.Year, fr.Month, fr.Day)
+							log.Infof("inserting donation stats detail record for page id %s and year %d month %d and day %d", p, fr.Year, fr.Month, fr.Day)
 						} else {
-							log.Infof("updating donation stats detail record for page id %s and year %d month %d and day %d %v", p, fr.Year, fr.Month, fr.Day)
+							log.Infof("updating donation stats detail record for page id %s and year %d month %d and day %d", p, fr.Year, fr.Month, fr.Day)
 						}
 						// insert/update the salesforce record
 						if insertRequired {
@@ -491,20 +490,29 @@ func handleMatch(conn *pgx.Conn, pageID uint, contactID *string) error {
 		return err
 	}
 	// if it is active...
-	if len(fres) > 0 && fres[0].TotalRaised > 0 {
-		// create a donation stats master record
-		initRes := fres[len(fres)-1]
-		log.Infof("inserting donation stats master record for page id %d", pageID)
-		sql = `INSERT INTO salesforce.donation_stats__c
- (fundraising_page_id__c, related_contact_record__c, initial_raised_online__c,
-	initial_raised_sms__c, initial_raised_offline__c, intial_estimated_gift_aid__c, initial_pledge_amount__c,
-	fundraising_portal_used__c, event_id__c, jg_charity_id__c, event_name__c)
-VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11);`
-		_, err = conn.Exec(sql, strconv.FormatInt(int64(pageID), 10), contactID, initRes.TotalRaisedOnline,
-			initRes.TotalRaisedSMS, initRes.TotalRaisedOffline, initRes.TotalEstimatedGiftAid, initRes.Target,
-			"Just Giving", strconv.FormatInt(int64(initRes.EventID), 10), strconv.FormatInt(int64(initRes.CharityID), 10), initRes.EventName)
-		if err != nil {
-			return fmt.Errorf("error creating initial salesforce.donation_stats__c %v", err)
+	if contactID != nil && len(fres) > 0 && fres[0].TotalRaised > 0 {
+		// and we haven't already associated this page with someone...
+		var rec *int
+		sql = `SELECT 1 FROM salesforce.donation_stats__c WHERE fundraising_page_id__c = $1 AND transaction_date__c IS NULL;`
+		err = conn.QueryRow(sql, strconv.FormatInt(int64(pageID), 10)).Scan(&rec)
+		if err == pgx.ErrNoRows { // create a donation stats master record
+			initRes := fres[len(fres)-1]
+			log.Infof("inserting donation stats master record for page id %d", pageID)
+			sql = `INSERT INTO salesforce.donation_stats__c
+	 (fundraising_page_id__c, related_contact_record__c, initial_raised_online__c,
+		initial_raised_sms__c, initial_raised_offline__c, intial_estimated_gift_aid__c, initial_pledge_amount__c,
+		fundraising_portal_used__c, event_id__c, jg_charity_id__c, event_name__c)
+	VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11);`
+			_, err = conn.Exec(sql, strconv.FormatInt(int64(pageID), 10), *contactID, initRes.TotalRaisedOnline,
+				initRes.TotalRaisedSMS, initRes.TotalRaisedOffline, initRes.TotalEstimatedGiftAid, initRes.Target,
+				"Just Giving", strconv.FormatInt(int64(initRes.EventID), 10), strconv.FormatInt(int64(initRes.CharityID), 10), initRes.EventName)
+			if err != nil {
+				return fmt.Errorf("error creating initial salesforce.donation_stats__c %v", err)
+			}
+		} else {
+			if err != nil {
+				return fmt.Errorf("error checking for existing association with salesforce.donation_stats__c %v", err)
+			}
 		}
 	}
 
