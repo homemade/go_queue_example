@@ -75,3 +75,15 @@ END AS target_amount
  FROM justgiving.fundraising_result r, justgiving.page p, justgiving.event e
 WHERE p.page_id = r.page_id AND p.event_id = e.event_id
 ORDER BY r.year DESC, r.month DESC, r.day DESC;
+
+CREATE VIEW salesforce.contact_page_fundraising_result AS
+SELECT related_contact_record__c AS contact_id,fundraising_page_id__c AS page_id,
+COALESCE(EXTRACT(YEAR FROM transaction_date__c),0)::integer AS year, COALESCE(EXTRACT(MONTH FROM transaction_date__c),0)::integer as month, COALESCE(EXTRACT(DAY FROM transaction_date__c),0)::integer as day,
+SUM(COALESCE(initial_raised_online__c,0) + COALESCE(raised_online_incremental__c,0)) AS raised_online,
+SUM(COALESCE(initial_raised_sms__c,0) + COALESCE(raised_sms_incremental__c,0)) AS raised_sms,
+SUM(COALESCE(initial_raised_offline__c,0) + COALESCE(raised_offline_incremental__c,0)) AS raised_offline,
+SUM(COALESCE(intial_estimated_gift_aid__c,0) + COALESCE(estimated_gift_aid__c,0)) AS estimated_gift_aid,
+SUM(COALESCE(initial_pledge_amount__c,0) + COALESCE(pledge_amount_revised__c,0)) AS target_amount,
+MAX(transaction_date__c) AS updated_timestamp
+FROM donation_stats__c
+GROUP BY related_contact_record__c, fundraising_page_id__c, EXTRACT(YEAR FROM transaction_date__c), EXTRACT(MONTH FROM transaction_date__c), EXTRACT(DAY FROM transaction_date__c);
