@@ -143,12 +143,53 @@ func HeartBeat() error {
 	}
 	// NOTE: the search functions handle creation of donation stats master records when a matching page is found
 
-	// TODO update donation stats detail records
-
-	// plan is 1. get a list of page ids (from donation stats)
-	// 2. call results(page id) - with no limit for each page, then loop through returned results
-	// 3. for each result query donation stats for the year, month, day if no record exists create one
-	// otherwise if record does exist, compare timestamps to see if update nessacary (or might be simpler just to update each time)
+	// update donation stats detail records (and check if the page name needs updating on the master record)
+	// first get a list of the page ids
+	rows, err := conn.Query("SELECT fundraising_page_id__c FROM salesforce.donation_stats__c GROUP BY fundraising_page_id__c;")
+	if err != nil {
+		return fmt.Errorf("error querying pages from salesforce.donation_stats__c %v", err)
+	}
+	defer rows.Close()
+	var pages []string
+	for rows.Next() {
+		var pageID *string
+		if err = rows.Scan(&pageID); err != nil {
+			return fmt.Errorf("error reading page id from salesforce.donation_stats__c %v", err)
+		}
+		if pageID == nil || *pageID == "" {
+			return errors.New("missing page id in salesforce.donation_stats__c")
+		}
+		pages = append(pages, *pageID)
+	}
+	// then fetch the results for each page
+	for _, p := range pages {
+		var results []justgiving.FundraisingResults
+		var pid int
+		pid, err = strconv.Atoi(p)
+		if err != nil {
+			return fmt.Errorf("error reading justgiving fundraising results for page %s %v", p, err)
+		}
+		results, err = justgiving.Results(conn, uint(pid), "")
+		if len(results) > 0 {
+			// on the initial record check if the page name needs updating on the master record
+			if results[0].PageShortName != "" {
+				psn := "https://www.justgiving.com/fundraising/" + results[0].PageShortName
+				sql = `UPDATE salesforce.donation_stats__c SET fundraising_page_url__c = $2
+			 WHERE fundraising_page_id__c = $1 AND transaction_date__c IS NULL
+			 AND (fundraising_page_url__c IS NULL OR fundraising_page_url__c <> $2);`
+				_, err = conn.Exec(sql, p, psn)
+				if err != nil {
+					return fmt.Errorf("error updating page short name for page id %s on initial salesforce.donation_stats__c record %v", p, err)
+				}
+				// for the non initial results records -  query donation stats for the year, month, day if no record exists create one
+				// otherwise if record does exist, compare timestamps to see if update necessary
+				// TODO
+				// for _, fr := range results[1:] {
+				//
+				// }
+			}
+		}
+	}
 
 	return nil
 }
