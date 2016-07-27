@@ -63,7 +63,7 @@ func HeartBeat() error {
 	var crecs []ContactRecord
 	for contacts.Next() {
 		var r ContactRecord
-		if err := contacts.Scan(&r.ID, &r.CharityID, &r.EventID, &r.PageID, &r.PageURL, &r.TeamPageURL, &r.Email); err != nil {
+		if err = contacts.Scan(&r.ID, &r.CharityID, &r.EventID, &r.PageID, &r.PageURL, &r.TeamPageURL, &r.Email); err != nil {
 			return fmt.Errorf("error reading from new salesforce.contacts %v", err)
 		}
 		// TODO handle team pages
@@ -117,7 +117,8 @@ func HeartBeat() error {
 		}
 		pageID := uint(rawPageID)
 
-		found, err := searchForPageUsingID(svc, conn, charityID, eventID, pageID, c.ID)
+		var found bool
+		found, err = searchForPageUsingID(svc, conn, charityID, eventID, pageID, c.ID)
 		if err != nil {
 			return err
 		}
@@ -144,139 +145,101 @@ func HeartBeat() error {
 
 	// update donation stats detail records (and check if the page name needs updating on the master record)
 	// first get a list of the page ids
-	if false {
-		rows, err := conn.Query("SELECT fundraising_page_id__c FROM salesforce.donation_stats__c GROUP BY fundraising_page_id__c;")
-		if err != nil {
-			return fmt.Errorf("error querying pages from salesforce.donation_stats__c %v", err)
-		}
-		var pages []string
-		for rows.Next() {
-			var pageID *string
-			if err = rows.Scan(&pageID); err != nil {
-				return fmt.Errorf("error reading page id from salesforce.donation_stats__c %v", err)
-			}
-			if pageID == nil || *pageID == "" {
-				rows.Close()
-				return errors.New("missing page id in salesforce.donation_stats__c")
-			}
-			pages = append(pages, *pageID)
-		}
-		rows.Close()
-		// then fetch the results for each page
-		for _, p := range pages {
 
-			var results []justgiving.FundraisingResults
-			var pid int
-			pid, err = strconv.Atoi(p)
-			if err != nil {
-				return fmt.Errorf("error reading justgiving fundraising results for page %s %v", p, err)
-			}
-			results, err = justgiving.Results(conn, uint(pid), "")
-			if len(results) > 0 {
-				// check if the page name needs updating on the master record (all items in the results have the latest page name through the view that is used)
-				if results[0].PageShortName != "" {
-					psn := "https://www.justgiving.com/fundraising/" + results[0].PageShortName
-					sql = `UPDATE salesforce.donation_stats__c SET fundraising_page_url__c = $2
+	rows, err := conn.Query("SELECT fundraising_page_id__c FROM salesforce.donation_stats__c GROUP BY fundraising_page_id__c;")
+	if err != nil {
+		return fmt.Errorf("error querying pages from salesforce.donation_stats__c %v", err)
+	}
+	var pages []string
+	for rows.Next() {
+		var pageID *string
+		if err = rows.Scan(&pageID); err != nil {
+			return fmt.Errorf("error reading page id from salesforce.donation_stats__c %v", err)
+		}
+		if pageID == nil || *pageID == "" {
+			rows.Close()
+			return errors.New("missing page id in salesforce.donation_stats__c")
+		}
+		pages = append(pages, *pageID)
+	}
+	rows.Close()
+	// then fetch the results for each page
+	for _, p := range pages {
+		var results []justgiving.FundraisingResults
+		var pid int
+		pid, err = strconv.Atoi(p)
+		if err != nil {
+			return fmt.Errorf("error reading justgiving fundraising results for page %s %v", p, err)
+		}
+		results, err = justgiving.Results(conn, uint(pid), "")
+		if len(results) > 0 {
+			// check if the page name needs updating on the master record (all items in the results have the latest page name through the view that is used)
+			if results[0].PageShortName != "" {
+				psn := "https://www.justgiving.com/fundraising/" + results[0].PageShortName
+				sql = `UPDATE salesforce.donation_stats__c SET fundraising_page_url__c = $2
 			 WHERE fundraising_page_id__c = $1 AND transaction_date__c IS NULL
 			 AND (fundraising_page_url__c IS NULL OR fundraising_page_url__c <> $2);`
-					_, err = conn.Exec(sql, p, psn)
-					if err != nil {
-						return fmt.Errorf("error updating page short name for page id %s on initial salesforce.donation_stats__c record %v", p, err)
-					}
+				_, err = conn.Exec(sql, p, psn)
+				if err != nil {
+					return fmt.Errorf("error updating page short name for page id %s on initial salesforce.donation_stats__c record %v", p, err)
 				}
-				// for the non initial results records (incremental records) -  query the salesforce results for the matching year, month, day
-				if len(results) > 1 {
-
-					// first retrieve the initial salesforce amounts
+			}
+			// for the non initial results records (incremental records) -  query the salesforce results for the matching year, month, day
+			if len(results) > 1 {
+				// justgiving results are in descending order (we need to handle them in ascending order)
+				// - we also skip the first initial/master record (index length-1)
+				for i := len(results) - 2; i >= 0; i-- {
+					fr := results[i]
+					// first retrieve the current salesforce amounts
 					var contactID *string
-					var initRaisedOnline, initRaisedSMS, initRaisedOffline, initEstimatedGiftAid, initTargetAmount *float64
-					sql = `SELECT related_contact_record__c, initial_raised_online__c, initial_raised_sms__c, initial_raised_offline__c, intial_estimated_gift_aid__c, initial_pledge_amount__c
-FROM salesforce.donation_stats__c WHERE fundraising_page_id__c = $1 AND transaction_date__c IS NULL;`
-					err = conn.QueryRow(sql, &p).Scan(&contactID, &initRaisedOnline, &initRaisedSMS, &initRaisedOffline, &initEstimatedGiftAid, &initTargetAmount)
+					var currRaisedOnline, currRaisedSMS, currRaisedOffline, currEstimatedGiftAid, currTargetAmount *float64
+					sql = `SELECT contact_id, raised_online, raised_sms, raised_offline, estimated_gift_aid, target_amount
+	FROM salesforce.contact_page_fundraising_result WHERE page_id = $1;`
+					err = conn.QueryRow(sql, &p).Scan(&contactID, &currRaisedOnline, &currRaisedSMS, &currRaisedOffline, &currEstimatedGiftAid, &currTargetAmount)
 					if err != nil {
-						return fmt.Errorf("error reading initial salesforce.donation_stats__c record for page id %s %v", p, err)
+						return fmt.Errorf("error reading salesforce.contact_page_fundraising_result record for page id %s %v", p, err)
 					}
 					if contactID == nil {
-						return fmt.Errorf("missing contact id when reading initial salesforce.donation_stats__c record for page id %s", p)
+						return fmt.Errorf("missing contact id when reading salesforce.contact_page_fundraising_result for page id %s", p)
 					}
-					if initRaisedOnline == nil {
-						return fmt.Errorf("missing raised online amount reading initial salesforce.donation_stats__c record for page id %s", p)
+					if currRaisedOnline == nil {
+						return fmt.Errorf("missing raised online amount reading salesforce.contact_page_fundraising_result record for page id %s", p)
 					}
-					if initRaisedSMS == nil {
-						return fmt.Errorf("missing raised sms amount reading initial salesforce.donation_stats__c record for page id %s", p)
+					if currRaisedSMS == nil {
+						return fmt.Errorf("missing raised sms amount reading salesforce.contact_page_fundraising_result record for page id %s", p)
 					}
-					if initRaisedOffline == nil {
-						return fmt.Errorf("missing raised offline amount reading initial salesforce.donation_stats__c record for page id %s", p)
+					if currRaisedOffline == nil {
+						return fmt.Errorf("missing raised offline amount reading salesforce.contact_page_fundraising_result record for page id %s", p)
 					}
-					if initEstimatedGiftAid == nil {
-						return fmt.Errorf("missing estimated gift aid amount reading initial salesforce.donation_stats__c record for page id %s", p)
+					if currEstimatedGiftAid == nil {
+						return fmt.Errorf("missing estimated gift aid amount reading salesforce.contact_page_fundraising_result record for page id %s", p)
 					}
-					if initTargetAmount == nil {
-						return fmt.Errorf("missing target amount reading initial salesforce.donation_stats__c record for page id %s", p)
+					if currTargetAmount == nil {
+						return fmt.Errorf("missing target amount reading salesforce.contact_page_fundraising_result record for page id %s", p)
 					}
+					// check if we need to sync
+					diffRaisedOnline := fr.TotalRaisedOnline - *currRaisedOnline
+					diffRaisedSMS := fr.TotalRaisedSMS - *currRaisedSMS
+					diffRaisedOffline := fr.TotalRaisedOffline - *currRaisedOffline
+					diffEstimatedGiftAid := fr.TotalEstimatedGiftAid - *currEstimatedGiftAid
+					diffTargetAmount := fr.Target - *currTargetAmount
 
-					// setup some running totals
-					runRaisedOnline := *initRaisedOnline
-					runRaisedSMS := *initRaisedSMS
-					runRaisedOffline := *initRaisedOffline
-					runEstimatedGiftAid := *initEstimatedGiftAid
-					runTargetAmount := *initTargetAmount
-
-					// justgiving results are in descending order (we need to handle them in ascending order)
-					// - we also skip the first initial/master record (index length-1)
-					for i := len(results) - 2; i >= 0; i-- {
-						fr := results[i]
-						// check if we need to sync
-						var transactionDate *time.Time
-						sql = `SELECT updated_timestamp FROM salesforce.contact_page_fundraising_result WHERE page_id = $1 AND year = $2 AND month = $3 AND day = $4;`
-						err = conn.QueryRow(sql, &p, &fr.Year, &fr.Month, &fr.Day).Scan(&transactionDate)
-						insertRequired := (err == pgx.ErrNoRows)
-						if err != nil && err != pgx.ErrNoRows {
-							return fmt.Errorf("error reading incremental salesforce.donation_stats__c record for page id %s and year %d month %d and day %d %v", p, fr.Year, fr.Month, fr.Day, err)
-						}
-						if insertRequired || (transactionDate != nil && *transactionDate != fr.Timestamp) {
-							// work out what has changed...
-							diffRaisedOnline := fr.TotalRaisedOnline - runRaisedOnline
-							diffRaisedSMS := fr.TotalRaisedSMS - runRaisedSMS
-							diffRaisedOffline := fr.TotalRaisedOffline - runRaisedOffline
-							diffEstimatedGiftAid := fr.TotalEstimatedGiftAid - runEstimatedGiftAid
-							diffTargetAmount := fr.Target - runTargetAmount
-							// update running totals for next record
-							runRaisedOnline = fr.TotalRaisedOnline
-							runRaisedSMS = fr.TotalRaisedSMS
-							runRaisedOffline = fr.TotalRaisedOffline
-							runEstimatedGiftAid = fr.TotalEstimatedGiftAid
-							runTargetAmount = fr.Target
-							if insertRequired {
-								log.Infof("inserting donation stats detail record for page id %s and year %d month %d and day %d", p, fr.Year, fr.Month, fr.Day)
-							} else {
-								log.Infof("updating donation stats detail record for page id %s and year %d month %d and day %d", p, fr.Year, fr.Month, fr.Day)
-							}
-							// insert/update the salesforce record
-							if insertRequired {
-								sql = `INSERT INTO salesforce.donation_stats__c
+					if diffRaisedOnline != 0 || diffRaisedSMS != 0 || diffRaisedOffline != 0 || diffEstimatedGiftAid != 0 || diffTargetAmount != 0 {
+						log.Infof("inserting donation stats detail record for page id %s and year %d month %d and day %d", p, fr.Year, fr.Month, fr.Day)
+						// insert the salesforce record
+						sql = `INSERT INTO salesforce.donation_stats__c
  (fundraising_page_id__c, related_contact_record__c, transaction_date__c, raised_online_incremental__c, raised_sms_incremental__c, raised_offline_incremental__c, estimated_gift_aid__c, pledge_amount_revised__c)
  VALUES($1,$2,$3,$4,$5,$6,$7,$8);`
-								_, err = conn.Exec(sql, p, *contactID, fr.Timestamp, diffRaisedOnline, diffRaisedSMS, diffRaisedOffline, diffEstimatedGiftAid, diffTargetAmount)
-								if err != nil {
-									return fmt.Errorf("error inserting incremental salesforce.donation_stats__c record for page id %s and year %d month %d and day %d %v", p, fr.Year, fr.Month, fr.Day, err)
-								}
-							} else {
-								sql = `UPDATE salesforce.donation_stats__c SET transaction_date__c = $5, raised_online_incremental__c = $6,
- raised_sms_incremental__c = $7, raised_offline_incremental__c = $8, estimated_gift_aid__c = $9, pledge_amount_revised__c = $10 WHERE fundraising_page_id__c = $1
- AND EXTRACT(YEAR FROM transaction_date__c)::integer = $2 AND EXTRACT(MONTH FROM transaction_date__c)::integer = $3 AND EXTRACT(DAY FROM transaction_date__c)::integer = $4;`
-								_, err = conn.Exec(sql, p, fr.Year, fr.Month, fr.Day, fr.Timestamp, diffRaisedOnline, diffRaisedSMS, diffRaisedOffline, diffEstimatedGiftAid, diffTargetAmount)
-								if err != nil {
-									return fmt.Errorf("error updating incremental salesforce.donation_stats__c record for page id %s and year %d month %d and day %d %v", p, fr.Year, fr.Month, fr.Day, err)
-								}
-							}
+						_, err = conn.Exec(sql, p, *contactID, fr.Timestamp, diffRaisedOnline, diffRaisedSMS, diffRaisedOffline, diffEstimatedGiftAid, diffTargetAmount)
+						if err != nil {
+							return fmt.Errorf("error inserting incremental salesforce.donation_stats__c record for page id %s and year %d month %d and day %d %v", p, fr.Year, fr.Month, fr.Day, err)
 						}
 					}
 				}
-
 			}
 		}
 	}
+
 	return nil
 }
 
