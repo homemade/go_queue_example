@@ -398,7 +398,7 @@ func checkEvent(svc *justin.Service, conn *pgx.Conn, charityID uint, eventID uin
 	if err != nil {
 		return err
 	}
-	if !in(eventIDs, eventID) && eventID > 3000000 { // TODO check using dates
+	if !in(eventIDs, eventID) {
 		// retrieve event from justgiving api
 		event, err := svc.Event(eventID)
 		if err != nil {
