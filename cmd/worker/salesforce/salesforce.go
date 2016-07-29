@@ -434,11 +434,8 @@ func checkEvent(svc *justin.Service, conn *pgx.Conn, charityID uint, eventID uin
 			if err != nil {
 				return fmt.Errorf("error parsing event expiry date %s as returned from from justgiving %v", event.ExpiryDate, err)
 			}
-			// TODO remove priority 0 when we are confident this works
-			// sql := `INSERT INTO justgiving.event (charity_id, event_id, name, event_type, location, completion_date, expiry_date, start_date) VALUES($1,$2,$3,$4,$5,$6,$7,$8);`
-			// _, err = conn.Exec(sql, charityID, eventID, event.Name, event.Type, event.Location, eventCompletionDate, eventExpiryDate, eventStartDate)
-			sql := `INSERT INTO justgiving.event (charity_id, event_id, priority, name, event_type, location, completion_date, expiry_date, start_date) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9);`
-			_, err = conn.Exec(sql, charityID, eventID, 0, event.Name, event.Type, event.Location, eventCompletionDate, eventExpiryDate, eventStartDate)
+			sql := `INSERT INTO justgiving.event (charity_id, event_id, name, event_type, location, completion_date, expiry_date, start_date) VALUES($1,$2,$3,$4,$5,$6,$7,$8);`
+			_, err = conn.Exec(sql, charityID, eventID, event.Name, event.Type, event.Location, eventCompletionDate, eventExpiryDate, eventStartDate)
 			if err != nil {
 				return fmt.Errorf("error inserting justgiving.event %d %d %v", charityID, eventID, err)
 			}
