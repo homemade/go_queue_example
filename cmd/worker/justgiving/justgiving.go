@@ -21,9 +21,9 @@ var JGRLCtx context.Context
 var JGRLCanc context.CancelFunc
 
 func init() {
-	// we setup a rate limit for JG API calls of 2 per second
-	// TODO calculate his based on batch size and heartbeat env vars
-	JGRL = rate.NewLimiter(rate.Limit(2), 2)
+	// we setup a rate limit for JG API calls of 3 per second
+	// TODO calculate this based on batch size and heartbeat env vars - once we discover JG API tolerances
+	JGRL = rate.NewLimiter(rate.Limit(3), 3)
 	JGRLCtx, JGRLCanc = context.WithCancel(context.Background())
 }
 
@@ -75,7 +75,8 @@ func HeartBeat() error {
 	if batchSize < 1 || err != nil {
 		return errors.New("missing or invalid JUSTIN_RESULTS_BATCH env var, expected integer value >= 1")
 	}
-	// retrieve the batch - this searches for non cancelled pages not updated in the last hour
+	// retrieve the batch - this searches for non cancelled pages not updated in the last 2 hours
+	// TODO calculate this based on batch size and heartbeat env vars - once we discover JG API tolerances
 	// results are then ordered on priority followed by the last updated timestamp
 	// (the COALESCE postgres function handles null values)
 	// finally the results are limited based on the batch size
