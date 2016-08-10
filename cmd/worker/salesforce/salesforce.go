@@ -159,15 +159,13 @@ func HeartBeat() error {
 		if err = rows.Scan(&pageID, &transDate); err != nil {
 			return fmt.Errorf("error reading page id and transaction date from salesforce.donation_stats__c %v", err)
 		}
-		if pageID == nil || *pageID == "" {
-			rows.Close()
-			return errors.New("missing page id in salesforce.donation_stats__c")
+		if pageID != nil && *pageID != "" {
+			pages = append(pages,
+				struct {
+					id string
+					ts *time.Time
+				}{*pageID, transDate})
 		}
-		pages = append(pages,
-			struct {
-				id string
-				ts *time.Time
-			}{*pageID, transDate})
 	}
 	rows.Close()
 
