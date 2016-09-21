@@ -447,8 +447,8 @@ func checkEvent(svc *justin.Service, conn *pgx.Conn, charityID uint, eventID uin
 }
 
 func handleMatch(conn *pgx.Conn, pageID uint, contactID *string) error {
-	// bump the page priority so we refresh its results more often
-	sql := `UPDATE justgiving.page_priority SET priority=5 WHERE page_id=$1`
+	// bump the page priority so we refresh its results more often (except if the page is cancelled or unserviceable i.e. priority is 0)
+	sql := `UPDATE justgiving.page_priority SET priority=5 WHERE page_id=$1 AND priority <> 0`
 	_, err := conn.Exec(sql, pageID)
 	if err != nil {
 		return fmt.Errorf("error updating justgiving.page_priority to 5 for page id %d %v", pageID, err)
