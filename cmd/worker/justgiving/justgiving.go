@@ -184,8 +184,8 @@ func HeartBeat() error {
 					if serviceable {
 						fr, err = svc.FundraisingPageResults(p)
 						if err != nil {
-							// if there was an error try and bump the priority of the page
-							sql = `UPDATE justgiving.page_priority SET priority=priority+1 WHERE page_id=$1`
+							// if there was an error try and bump the priority of the page (except if the page is cancelled or unserviceable i.e. priority is 0 - need to handle pages manually set to unserviceable here too!)
+							sql = `UPDATE justgiving.page_priority SET priority=priority+1 WHERE page_id=$1 AND priority <> 0`
 							conn.Exec(sql, p.ID())
 							return fmt.Errorf("error fetching justgiving results for page id %d with short name `%s` %v", p.ID(), p.ShortName(), err)
 						}
