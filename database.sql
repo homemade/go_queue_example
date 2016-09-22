@@ -86,3 +86,16 @@ SUM(COALESCE(initial_pledge_amount__c,0) + COALESCE(pledge_amount_revised__c,0))
 MAX(transaction_date__c) AS updated_timestamp
 FROM donation_stats__c
 GROUP BY related_contact_record__c, fundraising_page_id__c;
+
+CREATE TABLE salesforce.jgforce_contact(
+  fundraising_team_page_url__c  VARCHAR(255),
+  event_id__c                   VARCHAR(10),
+  fundraiser_jg_email__c        VARCHAR(80),
+  sfid                          VARCHAR(18),
+  jg_charity_id__c              VARCHAR(10),
+  fundraising_page_url__c       VARCHAR(255),
+  systemmodstamp                TIMESTAMP,
+  email                         VARCHAR(80),
+  fundraising_page_id__c        VARCHAR(10),
+	PRIMARY KEY (page_id)
+);
