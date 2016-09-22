@@ -97,5 +97,51 @@ CREATE TABLE salesforce.jgforce_contact(
   systemmodstamp                TIMESTAMP,
   email                         VARCHAR(80),
   fundraising_page_id__c        VARCHAR(10),
-	PRIMARY KEY (page_id)
+	PRIMARY KEY (sfid)
 );
+
+
+
+INSERT INTO salesforce.donation_stats__c
+(fundraising_page_id__c,
+initial_raised_online__c,
+initial_raised_sms__c,
+initial_raised_offline__c,
+createddate,
+name,
+related_contact_record__c,
+initial_pledge_amount__c,
+intial_estimated_gift_aid__c,
+raised_offline_incremental__c,
+estimated_gift_aid__c,
+raised_sms_incremental__c,
+transaction_date__c,
+raised_online_incremental__c,
+fundraising_portal_used__c,
+event_id__c,
+fundraising_page_url__c,
+jg_charity_id__c,
+event_name__c,
+pledge_amount_revised__c)
+SELECT
+fundraising_page_id__c,
+initial_raised_online__c,
+initial_raised_sms__c,
+initial_raised_offline__c,
+createddate,
+name,
+related_contact_record__c,
+initial_pledge_amount__c,
+intial_estimated_gift_aid__c,
+raised_offline_incremental__c,
+estimated_gift_aid__c,
+raised_sms_incremental__c,
+transaction_date__c,
+raised_online_incremental__c,
+fundraising_portal_used__c,
+event_id__c,
+fundraising_page_url__c,
+jg_charity_id__c,
+event_name__c,
+pledge_amount_revised__c
+FROM public.donation_stats__c20160922b;
