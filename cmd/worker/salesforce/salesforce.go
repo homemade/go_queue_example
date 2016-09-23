@@ -52,19 +52,19 @@ func HeartBeat() error {
  CASE WHEN c.fundraiser_jg_email__c IS NULL OR c.fundraiser_jg_email__c='' THEN c.email
  	ELSE c.fundraiser_jg_email__c
  END AS email
- FROM salesforce.jgforce_contact c LEFT OUTER JOIN salesforce.donation_stats__c d
+ FROM salesforce.contact c LEFT OUTER JOIN salesforce.donation_stats__c d
  ON (c.sfid = d.related_contact_record__c)
  WHERE d.sfid IS NULL ORDER BY c.systemmodstamp DESC;`
 	contacts, err := conn.Query(sql)
 	if err != nil {
-		return fmt.Errorf("error querying new salesforce.jgforce_contacts %v", err)
+		return fmt.Errorf("error querying new salesforce.contacts %v", err)
 	}
 
 	var crecs []ContactRecord
 	for contacts.Next() {
 		var r ContactRecord
 		if err = contacts.Scan(&r.ID, &r.CharityID, &r.EventID, &r.PageID, &r.PageURL, &r.TeamPageURL, &r.Email); err != nil {
-			return fmt.Errorf("error reading from new salesforce.jgforce_contacts %v", err)
+			return fmt.Errorf("error reading from new salesforce.contacts %v", err)
 		}
 		// TODO handle team pages
 		if r.ID != nil && *r.ID != "" && (r.TeamPageURL == nil || *r.TeamPageURL == "") {
