@@ -248,7 +248,7 @@ func HeartBeat() error {
 								diffRaisedOffline, fr.TotalRaisedOffline, *currRaisedOffline,
 								diffEstimatedGiftAid, fr.TotalEstimatedGiftAid, *currEstimatedGiftAid,
 								diffTargetAmount, fr.Target, *currTargetAmount,
-								fr.Timestamp, *p.ts)
+								fr.Timestamp, p.ts)
 						}
 					}
 				}
