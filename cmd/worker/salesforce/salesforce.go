@@ -233,8 +233,8 @@ func HeartBeat() error {
 						diffTargetAmount := fr.Target - *currTargetAmount
 
 						// TODO neater floating point comparison
-						if diffRaisedOnline > 0.000001 || diffRaisedSMS > 0.000001 || diffRaisedOffline > 0.000001 || diffEstimatedGiftAid > 0.000001 || diffTargetAmount > 0.000001 ||
-							diffRaisedOnline < 0.000001 || diffRaisedSMS < 0.000001 || diffRaisedOffline < 0.000001 || diffEstimatedGiftAid < 0.000001 || diffTargetAmount < 0.000001 {
+						if diffRaisedOnline > 0.01 || diffRaisedSMS > 0.01 || diffRaisedOffline > 0.01 || diffEstimatedGiftAid > -0.01 || diffTargetAmount > 0.01 ||
+							diffRaisedOnline < -0.01 || diffRaisedSMS < -0.01 || diffRaisedOffline < -0.01 || diffEstimatedGiftAid < -0.01 || diffTargetAmount < -0.01 {
 							log.Infof("inserting donation stats detail record for page id %s and year %d month %d and day %d", p.id, fr.Year, fr.Month, fr.Day)
 							// insert the salesforce record
 							sql = `INSERT INTO salesforce.donation_stats__c
