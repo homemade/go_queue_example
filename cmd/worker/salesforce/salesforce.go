@@ -3,6 +3,7 @@ package salesforce
 import (
 	"errors"
 	"fmt"
+	"math"
 	"net/mail"
 	"os"
 	"strconv"
@@ -242,13 +243,16 @@ func HeartBeat() error {
 							if err != nil {
 								return fmt.Errorf("error inserting incremental salesforce.donation_stats__c record for page id %s and year %d month %d and day %d %v", p.id, fr.Year, fr.Month, fr.Day, err)
 							}
-							log.Infof("rationale: %f %f %f | %f %f %f | %f %f %f | %f %f %f | %f %f %f | %v %v",
+							fix := fmt.Sprintf("%g %g %g %g %g", math.Abs(diffRaisedOnline), math.Abs(diffRaisedSMS),
+								math.Abs(diffRaisedOffline), math.Abs(diffEstimatedGiftAid), math.Abs(diffTargetAmount))
+							log.Infof("rationale: %g %g %g | %g %g %g | %g %g %g | %g %g %g | %g %g %g | %v %v | %s",
 								diffRaisedOnline, fr.TotalRaisedOnline, *currRaisedOnline,
 								diffRaisedSMS, fr.TotalRaisedSMS, *currRaisedSMS,
 								diffRaisedOffline, fr.TotalRaisedOffline, *currRaisedOffline,
 								diffEstimatedGiftAid, fr.TotalEstimatedGiftAid, *currEstimatedGiftAid,
 								diffTargetAmount, fr.Target, *currTargetAmount,
-								fr.Timestamp, p.ts)
+								fr.Timestamp, p.ts, fix)
+
 						}
 					}
 				}
