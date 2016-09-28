@@ -426,6 +426,10 @@ func checkEvent(svc *justin.Service, conn *pgx.Conn, charityID uint, eventID uin
 		if err != nil {
 			return fmt.Errorf("error fetching event %d from justgiving %v", eventID, err)
 		}
+		// handle bad event ids
+		if event == nil {
+			return nil
+		}
 		eventStartDate, err := event.ParseStartDate()
 		if err != nil {
 			return fmt.Errorf("error parsing event start date %s as returned from from justgiving %v", event.StartDate, err)
