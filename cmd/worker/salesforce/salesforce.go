@@ -233,7 +233,7 @@ func HeartBeat() error {
 						diffEstimatedGiftAid := fr.TotalEstimatedGiftAid - *currEstimatedGiftAid
 						diffTargetAmount := fr.Target - *currTargetAmount
 
-						if diffRaisedOnline != 0 || diffRaisedSMS != 0 || diffRaisedOffline != 0 || diffEstimatedGiftAid != 0 || diffTargetAmount != 0 {
+						if (math.Abs(diffRaisedOnline) > 0.01) || (math.Abs(diffRaisedSMS) > 0.01) || (math.Abs(diffRaisedOffline) > 0.01) || (math.Abs(diffEstimatedGiftAid) > 0.01) || (math.Abs(diffTargetAmount) > 0.01)) {
 							log.Infof("inserting donation stats detail record for page id %s and year %d month %d and day %d", p.id, fr.Year, fr.Month, fr.Day)
 							// insert the salesforce record
 							sql = `INSERT INTO salesforce.donation_stats__c
@@ -243,18 +243,13 @@ func HeartBeat() error {
 							if err != nil {
 								return fmt.Errorf("error inserting incremental salesforce.donation_stats__c record for page id %s and year %d month %d and day %d %v", p.id, fr.Year, fr.Month, fr.Day, err)
 							}
-							fix := fmt.Sprintf("%g %g %g %g %g | %t %t %t %t %t", math.Abs(diffRaisedOnline), math.Abs(diffRaisedSMS),
-								math.Abs(diffRaisedOffline), math.Abs(diffEstimatedGiftAid), math.Abs(diffTargetAmount),
-								(math.Abs(diffRaisedOnline) > 0.01), (math.Abs(diffRaisedSMS) > 0.01),
-								(math.Abs(diffRaisedOffline) > 0.01), (math.Abs(diffEstimatedGiftAid) > 0.01), (math.Abs(diffTargetAmount) > 0.01))
-							log.Infof("rationale: %g %g %g | %g %g %g | %g %g %g | %g %g %g | %g %g %g | %v %v | %s",
+							log.Infof("rationale: %g %g %g | %g %g %g | %g %g %g | %g %g %g | %g %g %g | %v %v",
 								diffRaisedOnline, fr.TotalRaisedOnline, *currRaisedOnline,
 								diffRaisedSMS, fr.TotalRaisedSMS, *currRaisedSMS,
 								diffRaisedOffline, fr.TotalRaisedOffline, *currRaisedOffline,
 								diffEstimatedGiftAid, fr.TotalEstimatedGiftAid, *currEstimatedGiftAid,
 								diffTargetAmount, fr.Target, *currTargetAmount,
-								fr.Timestamp, p.ts, fix)
-
+								fr.Timestamp, p.ts)
 						}
 					}
 				}
