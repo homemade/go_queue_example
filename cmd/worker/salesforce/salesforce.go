@@ -249,9 +249,11 @@ func HeartBeat() error {
 							if err != nil {
 								return fmt.Errorf("error retreiving inserted id from incremental salesforce.donation_stats__c record %v", err)
 							}
-							log.Infof("TODO update inserted record with id: %d", donationStatsID)
-							// TODO update inserted record
-							//sql = `UPDATE salesforce.donation_stats__c SET donation_date__c = date_trunc('second', donation_date__c) WHERE id = $1'
+							sql = `UPDATE salesforce.donation_stats__c SET donation_date__c = date_trunc('second', donation_date__c) WHERE id = $1`
+							_, err = conn.Exec(sql, donationStatsID)
+							if err != nil {
+								return fmt.Errorf("error updating donation_date__c in incremental salesforce.donation_stats__c record %v", err)
+							}
 							log.Infof("rationale: %g %g %g | %g %g %g | %g %g %g | %g %g %g | %g %g %g | %v %v",
 								diffRaisedOnline, fr.TotalRaisedOnline, *currRaisedOnline,
 								diffRaisedSMS, fr.TotalRaisedSMS, *currRaisedSMS,
@@ -506,9 +508,11 @@ func handleMatch(conn *pgx.Conn, pageID uint, contactID *string) error {
 			if err != nil {
 				return fmt.Errorf("error retreiving inserted id from initial salesforce.donation_stats__c record %v", err)
 			}
-			log.Infof("TODO update inserted record with id: %d", donationStatsID)
-			// TODO update inserted record
-			//sql = `UPDATE salesforce.donation_stats__c SET donation_date__c = date_trunc('second', donation_date__c) WHERE id = $1'
+			sql = `UPDATE salesforce.donation_stats__c SET donation_date__c = date_trunc('second', donation_date__c) WHERE id = $1`
+			_, err = conn.Exec(sql, donationStatsID)
+			if err != nil {
+				return fmt.Errorf("error updating donation_date__c in initial salesforce.donation_stats__c record %v", err)
+			}
 		} else {
 			if err != nil {
 				return fmt.Errorf("error checking for existing association with salesforce.donation_stats__c %v", err)
