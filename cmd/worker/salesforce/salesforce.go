@@ -493,7 +493,7 @@ func handleMatch(conn *pgx.Conn, pageID uint, contactID *string) error {
 	 (fundraising_page_id__c, related_contact_record__c, initial_raised_online__c,
 		initial_raised_sms__c, initial_raised_offline__c, intial_estimated_gift_aid__c, initial_pledge_amount__c,
 		fundraising_portal_used__c, event_id__c, jg_charity_id__c, event_name__c, donation_date__c)
-	VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,date_trunc('second', $12));`
+	VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12);`
 			_, err = conn.Exec(sql, strconv.FormatInt(int64(pageID), 10), *contactID, initRes.TotalRaisedOnline,
 				initRes.TotalRaisedSMS, initRes.TotalRaisedOffline, initRes.TotalEstimatedGiftAid, initRes.Target,
 				"Just Giving", strconv.FormatInt(int64(initRes.EventID), 10), strconv.FormatInt(int64(initRes.CharityID), 10), initRes.EventName, initRes.Timestamp)
