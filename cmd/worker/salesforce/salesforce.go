@@ -238,11 +238,20 @@ func HeartBeat() error {
 							// insert the salesforce record
 							sql = `INSERT INTO salesforce.donation_stats__c
 	 (fundraising_page_id__c, related_contact_record__c, transaction_date__c, raised_online_incremental__c, raised_sms_incremental__c, raised_offline_incremental__c, estimated_gift_aid__c, pledge_amount_revised__c,donation_date__c)
-	 VALUES($1,$2,$3,$4,$5,$6,$7,$8,date_trunc('second', $9));`
+	 VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9);`
 							_, err = conn.Exec(sql, p.id, *contactID, fr.Timestamp, diffRaisedOnline, diffRaisedSMS, diffRaisedOffline, diffEstimatedGiftAid, diffTargetAmount, fr.Timestamp)
 							if err != nil {
 								return fmt.Errorf("error inserting incremental salesforce.donation_stats__c record for page id %s and year %d month %d and day %d %v", p.id, fr.Year, fr.Month, fr.Day, err)
 							}
+							sql = `SELECT currval('donation_stats__c_id_seq');`
+							var donationStatsID int
+							err = conn.QueryRow(sql).Scan(&donationStatsID)
+							if err != nil {
+								return fmt.Errorf("error retreiving inserted id from incremental salesforce.donation_stats__c record %v", err)
+							}
+							log.Infof("TODO update inserted record with id: %d", donationStatsID)
+							// TODO update inserted record
+							//sql = `UPDATE salesforce.donation_stats__c SET donation_date__c = date_trunc('second', donation_date__c) WHERE id = $1'
 							log.Infof("rationale: %g %g %g | %g %g %g | %g %g %g | %g %g %g | %g %g %g | %v %v",
 								diffRaisedOnline, fr.TotalRaisedOnline, *currRaisedOnline,
 								diffRaisedSMS, fr.TotalRaisedSMS, *currRaisedSMS,
@@ -491,6 +500,15 @@ func handleMatch(conn *pgx.Conn, pageID uint, contactID *string) error {
 			if err != nil {
 				return fmt.Errorf("error creating initial salesforce.donation_stats__c %v", err)
 			}
+			sql = `SELECT currval('donation_stats__c_id_seq');`
+			var donationStatsID int
+			err = conn.QueryRow(sql).Scan(&donationStatsID)
+			if err != nil {
+				return fmt.Errorf("error retreiving inserted id from initial salesforce.donation_stats__c record %v", err)
+			}
+			log.Infof("TODO update inserted record with id: %d", donationStatsID)
+			// TODO update inserted record
+			//sql = `UPDATE salesforce.donation_stats__c SET donation_date__c = date_trunc('second', donation_date__c) WHERE id = $1'
 		} else {
 			if err != nil {
 				return fmt.Errorf("error checking for existing association with salesforce.donation_stats__c %v", err)
