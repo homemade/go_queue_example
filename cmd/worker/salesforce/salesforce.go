@@ -243,7 +243,7 @@ func HeartBeat() error {
 							if err != nil {
 								return fmt.Errorf("error inserting incremental salesforce.donation_stats__c record for page id %s and year %d month %d and day %d %v", p.id, fr.Year, fr.Month, fr.Day, err)
 							}
-							sql = `SELECT currval('donation_stats__c_id_seq');`
+							sql = `SELECT currval(pg_get_serial_sequence('salesforce.donation_stats__c', 'id'));`
 							var donationStatsID int
 							err = conn.QueryRow(sql).Scan(&donationStatsID)
 							if err != nil {
@@ -500,7 +500,7 @@ func handleMatch(conn *pgx.Conn, pageID uint, contactID *string) error {
 			if err != nil {
 				return fmt.Errorf("error creating initial salesforce.donation_stats__c %v", err)
 			}
-			sql = `SELECT currval('donation_stats__c_id_seq');`
+			sql = `SELECT currval(pg_get_serial_sequence('salesforce.donation_stats__c', 'id'));`
 			var donationStatsID int
 			err = conn.QueryRow(sql).Scan(&donationStatsID)
 			if err != nil {
